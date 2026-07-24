@@ -1,0 +1,61 @@
+{% import '_macros.html' as m %}
+<div class="card">
+  <h2>AUM over time</h2>
+  {% if aum_series %}
+    <div class="chart-wrap"><canvas id="aumChart"></canvas></div>
+  {% else %}
+    <p class="muted">No AUM data yet. Run the collector to populate history.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Recent changes</h2>
+  {% if recent %}
+  <table>
+    <thead><tr><th>Detected</th><th>Type</th><th>Change</th><th>Key</th><th>Before &rarr; After</th><th>As of</th></tr></thead>
+    <tbody>{% for c in recent %}{{ m.change_row(c) }}{% endfor %}</tbody>
+  </table>
+  {% else %}<p class="muted">No changes recorded yet.</p>{% endif %}
+</div>
+
+<div class="card">
+  <h2>Collector runs</h2>
+  {% if collectors %}
+  <table>
+    <thead><tr><th>Collector</th><th>Started</th><th>Status</th><th class="num">New raw</th><th class="num">New rows</th><th>Error</th></tr></thead>
+    <tbody>
+      {% for r in collectors %}
+      <tr>
+        <td>{{ r.collector }}</td>
+        <td class="muted">{{ r.started_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td class="{{ r.status }}">{{ r.status }}</td>
+        <td class="num">{{ r.new_raw }}</td>
+        <td class="num">{{ r.new_rows }}</td>
+        <td class="muted">{{ (r.error_msg or '')[:60] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">No collector runs yet.</p>{% endif %}
+</div>
+
+<script>
+(function(){
+  var series = {{ aum_series | tojson_safe }};
+  var el = document.getElementById('aumChart');
+  if(!el || !Object.keys(series).length) return;
+  var palette = ['#6b1f2a','#a23b47','#c98b4b','#4b7d8a','#7d6b4b'];
+  var datasets = Object.keys(series).map(function(name, i){
+    return { label: name, data: series[name],
+             borderColor: palette[i % palette.length],
+             backgroundColor: palette[i % palette.length], tension:0.2, pointRadius:3 };
+  });
+  new Chart(el, {
+    type:'line',
+    data:{ datasets: datasets },
+    options:{ responsive:true, maintainAspectRatio:false,
+      scales:{ x:{ type:'time', time:{ unit:'quarter' } },
+               y:{ title:{ display:true, text:'AUM' } } } }
+  });
+})();
+</script>

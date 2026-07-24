@@ -1,0 +1,60 @@
+<div class="notice">
+  ⚠️ 한국 지분 공시는 <strong>5% 이상 대량보유 상황보고분만 반영</strong>됩니다.
+  5% 미만 지분은 공시 의무가 없어 여기에 나타나지 않습니다.
+</div>
+
+<div class="card">
+  <h2>Ownership % over time</h2>
+  {% if kr_series %}
+    <div class="chart-wrap"><canvas id="krChart"></canvas></div>
+  {% else %}
+    <p class="muted">No Korean disclosures collected yet.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Disclosure history</h2>
+  {% if history %}
+  <table>
+    <thead>
+      <tr><th>Filed</th><th>As of</th><th>Company</th><th>Ticker</th>
+          <th class="num">Shares</th><th class="num">Ownership %</th><th>Type</th><th>Receipt</th></tr>
+    </thead>
+    <tbody>
+      {% for r in history %}
+      <tr>
+        <td class="muted">{{ r.filed_at }}</td>
+        <td class="muted">{{ r.as_of_date }}</td>
+        <td>{{ r.corp_name }}</td>
+        <td>{{ r.ticker or '' }}</td>
+        <td class="num">{{ '{:,}'.format(r.shares) if r.shares is not none else '' }}</td>
+        <td class="num">{{ '%.2f'|format(r.ownership_pct) if r.ownership_pct is not none else '' }}</td>
+        <td>{{ r.report_type or '' }}</td>
+        <td class="muted">{{ r.rcept_no }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">No disclosures yet.</p>{% endif %}
+</div>
+
+<script>
+(function(){
+  var series = {{ kr_series | tojson_safe }};
+  var el = document.getElementById('krChart');
+  if(!el || !Object.keys(series).length) return;
+  var palette = ['#6b1f2a','#a23b47','#c98b4b','#4b7d8a','#7d6b4b','#8a4b7d'];
+  var datasets = Object.keys(series).map(function(name, i){
+    return { label:name, data:series[name],
+             borderColor:palette[i % palette.length],
+             backgroundColor:palette[i % palette.length], tension:0.1, pointRadius:3, stepped:false };
+  });
+  new Chart(el, {
+    type:'line',
+    data:{ datasets: datasets },
+    options:{ responsive:true, maintainAspectRatio:false,
+      scales:{ x:{ type:'time', time:{ unit:'month' } },
+               y:{ title:{ display:true, text:'Ownership %' }, beginAtZero:true } } }
+  });
+})();
+</script>

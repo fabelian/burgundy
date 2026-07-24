@@ -1,0 +1,41 @@
+{
+  "status": "000",
+  "message": "정상",
+  "list": [
+    {
+      "rcept_no": "20240102000123",
+      "rcept_dt": "20240102",
+      "corp_code": "00126380",
+      "corp_name": "삼성전자",
+      "report_tp": "변동",
+      "repror": "Burgundy Asset Management Ltd.",
+      "stkqy": "1,500,000",
+      "stkqy_irds": "200,000",
+      "stkrt": "6.12",
+      "stkrt_irds": "0.80",
+      "stock_code": "005930"
+    },
+    {
+      "rcept_no": "20231201000999",
+      "rcept_dt": "20231201",
+      "corp_code": "00126380",
+      "corp_name": "삼성전자",
+      "report_tp": "신규",
+      "repror": "국민연금공단",
+      "stkqy": "300,000,000",
+      "stkrt": "8.50",
+      "stock_code": "005930"
+    },
+    {
+      "rcept_no": "20230815000555",
+      "rcept_dt": "20230815",
+      "corp_code": "00126380",
+      "corp_name": "삼성전자",
+      "report_tp": "신규",
+      "repror": "버건디자산운용",
+      "stkqy": "1,300,000",
+      "stkrt": "5.32",
+      "stock_code": "005930"
+    }
+  ]
+}
