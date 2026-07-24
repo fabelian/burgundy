@@ -1,0 +1,30 @@
+[project]
+name = "burgundy-tracker"
+version = "0.1.0"
+description = "Burgundy Asset Management tracker: append-only collection of AUM, holdings, personnel and Korean stakes."
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+    "psycopg[binary]>=3.1",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "jinja2>=3.1",
+    "lxml>=5.1",
+    "beautifulsoup4>=4.12",
+    "python-dateutil>=2.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["collectors", "parsers", "pipeline", "dashboard", "db"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
