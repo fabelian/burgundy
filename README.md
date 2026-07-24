@@ -99,6 +99,16 @@ Steps:
 4. Give both services the env vars above (`DATABASE_URL` as a reference to the
    Postgres plugin, `SEC_USER_AGENT`, `DART_API_KEY`, …).
 
+### One-shot maintenance runs
+
+The collector is a cron service, so it only runs on schedule. To run something
+once immediately, point the collector service's **Config File** at one of these
+(they omit the cron schedule, so Railway runs them once on deploy, then the
+process exits), then switch back to `railway.collector.json`:
+
+- `railway.backfill.json` — `pipeline.run` once (fills an empty DB with full history).
+- `railway.reparse.json` — `pipeline.reparse` (rebuild snapshots/derived rows from stored raw docs without re-fetching; e.g. to backfill the `13f_total` AUM series after a parser change).
+
 The collector branches internally by cadence: EDGAR and DART run every
 invocation; Form ADV and the website scrapes are skipped when their last
 successful run (per `collector_runs`) is within 7 days. Every run — success,
