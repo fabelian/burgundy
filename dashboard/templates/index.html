@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ manager }} — Tracker</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <style>
+    :root { --bg:#faf8f6; --card:#fff; --line:#e6ddd6; --wine:#6b1f2a; --wine2:#a23b47; --muted:#8a7f78; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+           background:var(--bg); color:#2a2320; }
+    header { background:var(--wine); color:#fff; padding:18px 24px; }
+    header h1 { margin:0; font-size:20px; font-weight:600; }
+    header .sub { opacity:.8; font-size:13px; margin-top:2px; }
+    nav { display:flex; gap:4px; padding:0 16px; background:#fff; border-bottom:1px solid var(--line);
+          position:sticky; top:0; z-index:5; }
+    nav button { border:0; background:none; padding:14px 18px; font-size:14px; cursor:pointer;
+                 color:var(--muted); border-bottom:3px solid transparent; }
+    nav button.active { color:var(--wine); border-bottom-color:var(--wine); font-weight:600; }
+    main { padding:24px; max-width:1100px; margin:0 auto; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:10px;
+            padding:18px; margin-bottom:20px; }
+    .card h2 { margin:0 0 14px; font-size:15px; color:var(--wine); }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); }
+    th { color:var(--muted); font-weight:600; }
+    td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+    .up { color:#1a7d43; } .down { color:#b3261e; } .new { color:var(--wine); font-weight:600; }
+    .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px;
+             background:#f0e7e2; color:var(--wine); }
+    .muted { color:var(--muted); font-size:12px; }
+    .notice { background:#fff6e6; border:1px solid #f0d9a8; color:#7a5b12;
+              padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:16px; }
+    select { padding:6px 10px; border:1px solid var(--line); border-radius:6px; }
+    .chart-wrap { position:relative; height:320px; }
+    .ok { color:#1a7d43; } .error { color:#b3261e; } .skipped { color:var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>{{ manager }}</h1>
+    <div class="sub">Asset-management tracker — append-only history of AUM, holdings & people</div>
+  </header>
+
+  <nav>
+    <button class="active" hx-get="/tab/overview" hx-target="#content"
+            onclick="setActive(this)">Overview</button>
+    <button hx-get="/tab/us" hx-target="#content" onclick="setActive(this)">US Holdings</button>
+    <button hx-get="/tab/korea" hx-target="#content" onclick="setActive(this)">Korea</button>
+    <button hx-get="/tab/changes" hx-target="#content" onclick="setActive(this)">Changes</button>
+  </nav>
+
+  <main>
+    <div id="content" hx-get="/tab/overview" hx-trigger="load"></div>
+  </main>
+
+  <script>
+    function setActive(btn){
+      document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+    // Re-run any <script> tags inside swapped-in HTMX content.
+    document.body.addEventListener('htmx:afterSwap', function(e){
+      e.detail.target.querySelectorAll('script').forEach(function(old){
+        const s=document.createElement('script');
+        s.textContent=old.textContent; old.replaceWith(s);
+      });
+    });
+  </script>
+</body>
+</html>

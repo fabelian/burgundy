@@ -1,0 +1,19 @@
+{% import '_macros.html' as m %}
+<div class="card">
+  <h2>Change timeline</h2>
+  <div style="margin-bottom:14px;">
+    <label class="muted">Filter:</label>
+    <select hx-get="/tab/changes" hx-target="#content" name="entity_type">
+      {% for opt in ['all','us_holding','kr_holding','aum','personnel'] %}
+        <option value="{{ opt }}" {% if opt == entity_type %}selected{% endif %}>{{ opt }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% if changes %}
+  <table>
+    <thead><tr><th>Detected</th><th>Type</th><th>Change</th><th>Key</th><th>Before &rarr; After</th><th>As of</th></tr></thead>
+    <tbody>{% for c in changes %}{{ m.change_row(c) }}{% endfor %}</tbody>
+  </table>
+  <p class="muted" style="margin-top:10px;">{{ changes|length }} event(s).</p>
+  {% else %}<p class="muted">No changes for this filter.</p>{% endif %}
+</div>

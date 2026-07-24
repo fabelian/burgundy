@@ -1,0 +1,14 @@
+{% macro change_row(c) %}
+  <tr>
+    <td class="muted">{{ c.detected_at.strftime('%Y-%m-%d %H:%M') }}</td>
+    <td><span class="badge">{{ c.entity_type }}</span></td>
+    <td>{{ c.change_type }}</td>
+    <td>{{ c.entity_key }}</td>
+    <td class="muted">
+      {%- if c.before %}{{ c.before }}{% endif -%}
+      {%- if c.before and c.after %} &rarr; {% endif -%}
+      {%- if c.after %}{{ c.after }}{% endif -%}
+    </td>
+    <td class="muted">{{ c.as_of_date or '' }}</td>
+  </tr>
+{% endmacro %}

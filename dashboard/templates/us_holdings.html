@@ -1,0 +1,47 @@
+<div class="card">
+  <h2>US Holdings (13F)</h2>
+  {% if data.as_of %}
+    <div style="margin-bottom:14px;">
+      <label class="muted">Quarter:</label>
+      <select hx-get="/tab/us" hx-target="#content" name="quarter">
+        {% for q in quarters %}
+          <option value="{{ q.isoformat() }}" {% if q == data.as_of %}selected{% endif %}>{{ q }}</option>
+        {% endfor %}
+      </select>
+      <span class="muted">
+        {% if data.prev %}vs prior quarter {{ data.prev }}{% else %}(no prior quarter){% endif %}
+      </span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th><th>CUSIP</th><th>Ticker</th>
+          <th class="num">Shares</th><th class="num">Value (k$)</th>
+          <th class="num">Weight</th><th class="num">&Delta; Shares</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in data.rows %}
+        <tr>
+          <td>{{ r.name }}</td>
+          <td class="muted">{{ r.cusip }}</td>
+          <td>{{ r.ticker or '' }}</td>
+          <td class="num">{{ '{:,}'.format(r.shares) }}</td>
+          <td class="num">{{ '{:,}'.format(r.value_kusd) }}</td>
+          <td class="num">{{ '%.2f'|format((r.weight or 0) * 100) }}%</td>
+          <td class="num">
+            {% if r.is_new %}<span class="new">NEW</span>
+            {% elif r.delta is none %}<span class="muted">—</span>
+            {% elif r.delta > 0 %}<span class="up">+{{ '{:,}'.format(r.delta) }}</span>
+            {% elif r.delta < 0 %}<span class="down">{{ '{:,}'.format(r.delta) }}</span>
+            {% else %}<span class="muted">0</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="muted" style="margin-top:10px;">{{ data.rows|length }} positions.</p>
+  {% else %}
+    <p class="muted">No 13F holdings yet. Run <code>python -m pipeline.backfill --since 2015</code>.</p>
+  {% endif %}
+</div>
