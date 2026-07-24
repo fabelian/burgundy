@@ -9,6 +9,20 @@ import config
 
 _last_sec_request = [0.0]
 
+# Many corporate sites (incl. burgundyasset.com) 403 non-browser clients, so
+# website scrapes send a realistic browser User-Agent.
+BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,"
+        "image/avif,image/webp,*/*;q=0.8"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
 
 def sec_get(url: str, *, timeout: float = 30.0) -> httpx.Response:
     """GET against SEC hosts with the required User-Agent and rate limiting."""
@@ -33,6 +47,7 @@ def get_json(url: str, *, params: dict | None = None, timeout: float = 30.0) -> 
 
 
 def get_text(url: str, *, timeout: float = 30.0) -> str:
-    resp = httpx.get(url, timeout=timeout, follow_redirects=True)
+    resp = httpx.get(url, headers=BROWSER_HEADERS, timeout=timeout,
+                     follow_redirects=True)
     resp.raise_for_status()
     return resp.text
