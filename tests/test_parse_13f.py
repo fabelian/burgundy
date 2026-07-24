@@ -1,7 +1,7 @@
 import pathlib
 from datetime import date
 
-from parsers.parse_13f import parse_13f
+from parsers.parse_13f import compute_total_aum, parse_13f
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 
@@ -50,3 +50,21 @@ def test_metadata_propagated():
         assert r.filed_at == date(2024, 5, 15)
         assert r.accession_no == "0001234567-24-000001"
         assert r.is_amendment is False
+
+
+def test_total_aum_post_2023_whole_dollars():
+    rows = _load()  # total reported value = 150000 + 50000 = 200000
+    aum = compute_total_aum(rows, date(2024, 3, 31))
+    assert aum.source == "13f_total"
+    assert aum.currency == "USD"
+    assert aum.aum == 200_000        # already whole USD post-2023
+
+
+def test_total_aum_pre_2023_thousands_scaled():
+    rows = _load()
+    aum = compute_total_aum(rows, date(2022, 12, 31))
+    assert aum.aum == 200_000 * 1000  # thousands -> whole USD
+
+
+def test_total_aum_empty():
+    assert compute_total_aum([], date(2024, 3, 31)) is None
