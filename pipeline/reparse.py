@@ -16,7 +16,7 @@ from datetime import date
 from dateutil import parser as dateparse
 
 from db.conn import connect
-from parsers.parse_13f import parse_13f
+from parsers.parse_13f import compute_total_aum, parse_13f
 from parsers.parse_dart import parse_dart_majorstock
 from parsers.parse_website import parse_team, parse_aum
 from pipeline import diff, repo
@@ -46,6 +46,10 @@ def _reparse_13f(conn) -> int:
         )
         total += repo.insert_holdings(conn, parsed, r["raw_id"])
         diff.diff_us_holdings(conn, r["external_id"])
+        aum = compute_total_aum(parsed, r["as_of_date"])
+        if aum is not None:
+            repo.insert_aum(conn, [aum], r["raw_id"])
+            diff.diff_aum(conn, "13f_total", r["as_of_date"])
     return total
 
 

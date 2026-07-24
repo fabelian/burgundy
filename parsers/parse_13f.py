@@ -13,7 +13,12 @@ from typing import Optional
 
 from lxml import etree
 
-from collectors.types import HoldingRow
+from collectors.types import AumRow, HoldingRow
+
+# SEC changed the 13F "value" unit from USD-thousands to whole USD for report
+# periods on/after 2023-01-01. We normalise the derived AUM total to whole USD
+# so the 13f_total series stays continuous across that boundary.
+_UNIT_CHANGE_DATE = date(2023, 1, 1)
 
 
 def _localname(tag: str) -> str:
@@ -100,6 +105,24 @@ def parse_13f(
 
     _assign_weights(rows)
     return rows
+
+
+def compute_total_aum(rows: list[HoldingRow], as_of: date) -> AumRow | None:
+    """Derive an approximate AUM figure from a 13F filing (US long positions).
+
+    Stored as ``source='13f_total'`` in whole USD. Returns None for an empty
+    filing.
+    """
+    if not rows:
+        return None
+    total_reported = sum(r.value_kusd for r in rows)
+    multiplier = 1000 if as_of < _UNIT_CHANGE_DATE else 1
+    return AumRow(
+        as_of_date=as_of,
+        aum=float(total_reported * multiplier),
+        currency="USD",
+        source="13f_total",
+    )
 
 
 def _assign_weights(rows: list[HoldingRow]) -> None:

@@ -15,7 +15,7 @@ import config
 from collectors.base import BaseCollector, sha256_hex
 from collectors.http import sec_get
 from collectors.types import FetchTarget, RawDoc
-from parsers.parse_13f import parse_13f
+from parsers.parse_13f import compute_total_aum, parse_13f
 from pipeline import diff, repo
 
 FORMS_13F = {"13F-HR", "13F-HR/A"}
@@ -138,4 +138,9 @@ class Edgar13FCollector(BaseCollector):
         )
         n = repo.insert_holdings(conn, rows, raw_id)
         diff.diff_us_holdings(conn, target.external_id)
+        # derive an auxiliary AUM point (US long positions) for the time series
+        aum = compute_total_aum(rows, report_date)
+        if aum is not None:
+            repo.insert_aum(conn, [aum], raw_id)
+            diff.diff_aum(conn, "13f_total", report_date)
         return n
