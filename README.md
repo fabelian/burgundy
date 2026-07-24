@@ -80,20 +80,24 @@ pytest                                     # tests (DB-backed ones skip if no DB
 ## Deployment (Railway)
 
 One repository, **two services** sharing the Postgres plugin and the env vars
-above. `railway.json` configures the always-on dashboard by default; add the
-collector as a second service in the Railway dashboard.
+above. Each service reads its own config-as-code file, so their start commands
+don't collide:
 
-| Service | Start command | Setting |
-|---|---|---|
-| `dashboard` | `python -m db.migrate && uvicorn dashboard.app:app --host 0.0.0.0 --port $PORT` | always on (this is `railway.json`) |
-| `collector` | `python -m db.migrate && python -m pipeline.run` | Cron `0 22 * * *` (UTC 22:00 = KST 07:00, daily) |
+| Service | Config file | Start command | Setting |
+|---|---|---|---|
+| `dashboard` | `railway.json` (default) | `python -m db.migrate && uvicorn dashboard.app:app --host 0.0.0.0 --port $PORT` | always on |
+| `collector` | `railway.collector.json` | `python -m db.migrate && python -m pipeline.run` | Cron `0 22 * * *` (UTC 22:00 = KST 07:00, daily) |
 
 Steps:
 1. Create a Railway project from this repo and add the **PostgreSQL** plugin.
-2. Service **dashboard** deploys automatically from `railway.json`.
-3. Add a second service **collector** from the same repo, set its start command
-   and Cron schedule as above, and share the same variables.
-4. Set the env vars in the shared project variables.
+2. Service **dashboard** deploys automatically from `railway.json`. Generate a
+   domain for it under Settings → Networking.
+3. Add a second service **collector** from the same repo. In its
+   Settings → Config-as-code, set the **Railway Config File** path to
+   `railway.collector.json` — that file supplies the start command and cron
+   schedule, so no manual entry is needed. Do **not** expose a domain for it.
+4. Give both services the env vars above (`DATABASE_URL` as a reference to the
+   Postgres plugin, `SEC_USER_AGENT`, `DART_API_KEY`, …).
 
 The collector branches internally by cadence: EDGAR and DART run every
 invocation; Form ADV and the website scrapes are skipped when their last
