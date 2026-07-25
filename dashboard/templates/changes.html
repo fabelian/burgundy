@@ -3,7 +3,8 @@
   <h2>Change timeline</h2>
   <div style="margin-bottom:14px;">
     <label class="muted">Filter:</label>
-    <select hx-get="/tab/changes" hx-target="#content" name="entity_type">
+    <select hx-get="/tab/changes" hx-target="#content" name="entity_type"
+            hx-vals='{"manager": "{{ selected }}"}'>
       {% for opt in ['all','us_holding','kr_holding','aum','personnel'] %}
         <option value="{{ opt }}" {% if opt == entity_type %}selected{% endif %}>{{ opt }}</option>
       {% endfor %}

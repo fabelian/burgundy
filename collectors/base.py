@@ -28,6 +28,27 @@ def _now() -> datetime:
 class BaseCollector:
     source: str = "base"
 
+    def __init__(self, manager: dict):
+        """``manager`` is a row from the ``managers`` table.
+
+        Every collector instance belongs to exactly one manager: it is what
+        scopes the idempotency checks, so two managers can hold the same
+        security, or file identical boilerplate, without colliding.
+        """
+        self.manager = manager
+        self.manager_id = manager["id"]
+
+    def __repr__(self) -> str:  # shows up in logs
+        return f"<{type(self).__name__} {self.manager['slug']}>"
+
+    @property
+    def log_prefix(self) -> str:
+        return f"{self.manager['slug']}/{self.source}"
+
+    def applies(self) -> bool:
+        """Whether this manager has what the collector needs (id, url, key)."""
+        return True
+
     # ---- to be implemented by subclasses --------------------------------
     def discover(self) -> list[FetchTarget]:
         """Return candidate documents (with idempotency keys)."""
@@ -49,7 +70,8 @@ class BaseCollector:
     def already_have_target(self, conn, target: FetchTarget) -> bool:
         """Skip a target we already fetched (by external_id when present)."""
         if target.external_id:
-            return repo.external_id_seen(conn, self.source, target.external_id)
+            return repo.external_id_seen(
+                conn, self.manager_id, self.source, target.external_id)
         return False
 
     # ---- common flow ----------------------------------------------------
@@ -60,7 +82,7 @@ class BaseCollector:
         errors: list[str] = []
 
         with connect() as conn:
-            run_id = repo.start_run(conn, self.source, started)
+            run_id = repo.start_run(conn, self.manager_id, self.source, started)
         # start_run committed on context exit.
 
         try:
@@ -71,7 +93,7 @@ class BaseCollector:
                     conn, run_id, finished_at=_now(), status="error",
                     error_msg=f"discover failed: {exc}",
                 )
-            print(f"[{self.source}] discover failed: {exc}")
+            print(f"[{self.log_prefix}] discover failed: {exc}")
             traceback.print_exc()
             return {"status": "error", "new_raw": 0, "new_rows": 0}
 
@@ -83,10 +105,11 @@ class BaseCollector:
                     raw = self.fetch(target)
                     if raw is None:
                         continue
-                    if repo.raw_exists(conn, self.source, raw.content_hash):
+                    if repo.raw_exists(conn, self.manager_id, self.source,
+                                       raw.content_hash):
                         # content unchanged since a prior fetch
                         continue
-                    raw_id = repo.insert_raw(conn, raw)
+                    raw_id = repo.insert_raw(conn, self.manager_id, raw)
                     if raw_id is None:
                         continue
                     new_raw += 1
@@ -95,7 +118,7 @@ class BaseCollector:
             except Exception as exc:  # isolate per-document failures
                 msg = f"{target.external_id or target.url}: {exc}"
                 errors.append(msg)
-                print(f"[{self.source}] item failed: {msg}")
+                print(f"[{self.log_prefix}] item failed: {msg}")
                 traceback.print_exc()
 
         status = "error" if errors else "ok"
@@ -105,5 +128,6 @@ class BaseCollector:
                 new_raw=new_raw, new_rows=new_rows,
                 error_msg="; ".join(errors)[:2000] if errors else None,
             )
-        print(f"[{self.source}] done status={status} new_raw={new_raw} new_rows={new_rows}")
+        print(f"[{self.log_prefix}] done status={status} "
+              f"new_raw={new_raw} new_rows={new_rows}")
         return {"status": status, "new_raw": new_raw, "new_rows": new_rows}

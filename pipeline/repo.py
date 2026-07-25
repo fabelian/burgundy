@@ -21,43 +21,49 @@ from collectors.types import (
 
 # ---- raw_documents -------------------------------------------------------
 
-def insert_raw(conn, doc: RawDoc) -> Optional[int]:
+def insert_raw(conn, manager_id: int, doc: RawDoc) -> Optional[int]:
     """Insert a raw document. Returns its id, or the existing id on conflict.
 
     None is returned only if the row exists and we could not read it back
-    (should not happen). Idempotency key: (source, content_hash).
+    (should not happen). Idempotency key: (manager_id, source, content_hash) —
+    two managers filing identical content must not share a row.
     """
     row = conn.execute(
         """
-        INSERT INTO raw_documents (source, external_id, url, content_hash, payload)
-        VALUES (%s, %s, %s, %s, %s)
-        ON CONFLICT (source, content_hash) DO NOTHING
+        INSERT INTO raw_documents
+              (manager_id, source, external_id, url, content_hash, payload)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT (manager_id, source, content_hash) DO NOTHING
         RETURNING id
         """,
-        (doc.source, doc.external_id, doc.url, doc.content_hash, doc.payload),
+        (manager_id, doc.source, doc.external_id, doc.url, doc.content_hash,
+         doc.payload),
     ).fetchone()
     if row:
         return row["id"]
     existing = conn.execute(
-        "SELECT id FROM raw_documents WHERE source = %s AND content_hash = %s",
-        (doc.source, doc.content_hash),
+        "SELECT id FROM raw_documents"
+        " WHERE manager_id = %s AND source = %s AND content_hash = %s",
+        (manager_id, doc.source, doc.content_hash),
     ).fetchone()
     return existing["id"] if existing else None
 
 
-def raw_exists(conn, source: str, content_hash: str) -> bool:
+def raw_exists(conn, manager_id: int, source: str, content_hash: str) -> bool:
     row = conn.execute(
-        "SELECT 1 FROM raw_documents WHERE source = %s AND content_hash = %s",
-        (source, content_hash),
+        "SELECT 1 FROM raw_documents"
+        " WHERE manager_id = %s AND source = %s AND content_hash = %s",
+        (manager_id, source, content_hash),
     ).fetchone()
     return row is not None
 
 
-def external_id_seen(conn, source: str, external_id: str) -> bool:
+def external_id_seen(conn, manager_id: int, source: str, external_id: str) -> bool:
     """True if a raw doc with this source/external_id already exists."""
     row = conn.execute(
-        "SELECT 1 FROM raw_documents WHERE source = %s AND external_id = %s LIMIT 1",
-        (source, external_id),
+        "SELECT 1 FROM raw_documents"
+        " WHERE manager_id = %s AND source = %s AND external_id = %s LIMIT 1",
+        (manager_id, source, external_id),
     ).fetchone()
     return row is not None
 
@@ -74,7 +80,7 @@ def external_id_seen(conn, source: str, external_id: str) -> bool:
 _COMPLETENESS_FLOOR = 0.5
 
 
-def best_filing_for_quarter(conn, as_of: date) -> Optional[dict]:
+def best_filing_for_quarter(conn, manager_id: int, as_of: date) -> Optional[dict]:
     """The filing that best represents a quarter's portfolio.
 
     Latest filed wins (amendment preferred on a tie), among filings complete
@@ -85,7 +91,7 @@ def best_filing_for_quarter(conn, as_of: date) -> Optional[dict]:
         """
         WITH f AS (
             SELECT accession_no, filed_at, is_amendment, count(*) AS positions
-              FROM holdings WHERE as_of_date = %s
+              FROM holdings WHERE manager_id = %s AND as_of_date = %s
              GROUP BY accession_no, filed_at, is_amendment
         )
         SELECT accession_no, filed_at, is_amendment, positions,
@@ -95,23 +101,25 @@ def best_filing_for_quarter(conn, as_of: date) -> Optional[dict]:
          ORDER BY filed_at DESC, is_amendment DESC
          LIMIT 1
         """,
-        (as_of, _COMPLETENESS_FLOOR),
+        (manager_id, as_of, _COMPLETENESS_FLOOR),
     ).fetchone()
 
 
-def insert_holdings(conn, rows: Iterable[HoldingRow], raw_id: Optional[int]) -> int:
+def insert_holdings(conn, manager_id: int, rows: Iterable[HoldingRow],
+                    raw_id: Optional[int]) -> int:
     n = 0
     for r in rows:
         res = conn.execute(
             """
             INSERT INTO holdings
-              (as_of_date, filed_at, accession_no, is_amendment, cusip, ticker,
-               name, shares, value_kusd, weight, raw_id)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            ON CONFLICT (accession_no, cusip) DO NOTHING
+              (manager_id, as_of_date, filed_at, accession_no, is_amendment,
+               cusip, ticker, name, shares, value_kusd, weight, raw_id)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ON CONFLICT (manager_id, accession_no, cusip) DO NOTHING
             RETURNING id
             """,
             (
+                manager_id,
                 r.as_of_date, r.filed_at, r.accession_no, r.is_amendment, r.cusip,
                 r.ticker, r.name, r.shares, r.value_kusd, r.weight, raw_id,
             ),
@@ -125,6 +133,7 @@ def insert_holdings(conn, rows: Iterable[HoldingRow], raw_id: Optional[int]) -> 
 
 def insert_notice(
     conn,
+    manager_id: int,
     *,
     as_of_date,
     filed_at,
@@ -138,13 +147,13 @@ def insert_notice(
     res = conn.execute(
         """
         INSERT INTO filing_notices
-          (as_of_date, filed_at, accession_no, form, report_type,
+          (manager_id, as_of_date, filed_at, accession_no, form, report_type,
            other_managers, raw_id)
-        VALUES (%s,%s,%s,%s,%s,%s,%s)
-        ON CONFLICT (accession_no) DO NOTHING
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+        ON CONFLICT (manager_id, accession_no) DO NOTHING
         RETURNING id
         """,
-        (as_of_date, filed_at, accession_no, form, report_type,
+        (manager_id, as_of_date, filed_at, accession_no, form, report_type,
          other_managers, raw_id),
     ).fetchone()
     return res is not None
@@ -152,19 +161,21 @@ def insert_notice(
 
 # ---- kr_holdings (DART) --------------------------------------------------
 
-def insert_kr_holdings(conn, rows: Iterable[KrHoldingRow], raw_id: Optional[int]) -> int:
+def insert_kr_holdings(conn, manager_id: int, rows: Iterable[KrHoldingRow],
+                       raw_id: Optional[int]) -> int:
     n = 0
     for r in rows:
         res = conn.execute(
             """
             INSERT INTO kr_holdings
-              (as_of_date, filed_at, rcept_no, corp_code, corp_name, ticker,
-               shares, ownership_pct, report_type, raw_id)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            ON CONFLICT (rcept_no, corp_code) DO NOTHING
+              (manager_id, as_of_date, filed_at, rcept_no, corp_code, corp_name,
+               ticker, shares, ownership_pct, report_type, raw_id)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ON CONFLICT (manager_id, rcept_no, corp_code) DO NOTHING
             RETURNING id
             """,
             (
+                manager_id,
                 r.as_of_date, r.filed_at, r.rcept_no, r.corp_code, r.corp_name,
                 r.ticker, r.shares, r.ownership_pct, r.report_type, raw_id,
             ),
@@ -176,17 +187,19 @@ def insert_kr_holdings(conn, rows: Iterable[KrHoldingRow], raw_id: Optional[int]
 
 # ---- aum_history ---------------------------------------------------------
 
-def insert_aum(conn, rows: Iterable[AumRow], raw_id: Optional[int]) -> int:
+def insert_aum(conn, manager_id: int, rows: Iterable[AumRow],
+               raw_id: Optional[int]) -> int:
     n = 0
     for r in rows:
         res = conn.execute(
             """
-            INSERT INTO aum_history (as_of_date, aum, currency, source, raw_id)
-            VALUES (%s,%s,%s,%s,%s)
-            ON CONFLICT (as_of_date, source) DO NOTHING
+            INSERT INTO aum_history
+              (manager_id, as_of_date, aum, currency, source, raw_id)
+            VALUES (%s,%s,%s,%s,%s,%s)
+            ON CONFLICT (manager_id, as_of_date, source) DO NOTHING
             RETURNING id
             """,
-            (r.as_of_date, r.aum, r.currency, r.source, raw_id),
+            (manager_id, r.as_of_date, r.aum, r.currency, r.source, raw_id),
         ).fetchone()
         if res:
             n += 1
@@ -195,13 +208,14 @@ def insert_aum(conn, rows: Iterable[AumRow], raw_id: Optional[int]) -> int:
 
 # ---- collector_runs ------------------------------------------------------
 
-def start_run(conn, collector: str, started_at: datetime) -> int:
+def start_run(conn, manager_id: int, collector: str,
+              started_at: datetime) -> int:
     row = conn.execute(
         """
-        INSERT INTO collector_runs (collector, started_at, status)
-        VALUES (%s, %s, 'ok') RETURNING id
+        INSERT INTO collector_runs (manager_id, collector, started_at, status)
+        VALUES (%s, %s, %s, 'ok') RETURNING id
         """,
-        (collector, started_at),
+        (manager_id, collector, started_at),
     ).fetchone()
     return row["id"]
 
@@ -227,14 +241,15 @@ def finish_run(
     )
 
 
-def last_success_at(conn, collector: str) -> Optional[datetime]:
+def last_success_at(conn, manager_id: int,
+                    collector: str) -> Optional[datetime]:
     row = conn.execute(
         """
         SELECT finished_at FROM collector_runs
-         WHERE collector = %s AND status = 'ok'
+         WHERE manager_id = %s AND collector = %s AND status = 'ok'
          ORDER BY finished_at DESC NULLS LAST LIMIT 1
         """,
-        (collector,),
+        (manager_id, collector),
     ).fetchone()
     return row["finished_at"] if row else None
 
@@ -243,6 +258,7 @@ def last_success_at(conn, collector: str) -> Optional[datetime]:
 
 def insert_change(
     conn,
+    manager_id: int,
     *,
     entity_type: str,
     change_type: str,
@@ -251,19 +267,20 @@ def insert_change(
     after: Optional[dict],
     as_of_date: Optional[date],
 ) -> bool:
-    """Insert a diff event. Deduped by (entity_type, entity_key, as_of_date,
-    change_type). Returns True if a new row was inserted."""
+    """Insert a diff event. Deduped per manager by (entity_type, entity_key,
+    as_of_date, change_type). Returns True if a new row was inserted."""
     res = conn.execute(
         """
         INSERT INTO changes
-          (entity_type, change_type, entity_key, before, after, as_of_date)
-        VALUES (%s,%s,%s,%s,%s,%s)
-        ON CONFLICT (entity_type, entity_key, as_of_date, change_type)
+          (manager_id, entity_type, change_type, entity_key, before, after,
+           as_of_date)
+        VALUES (%s,%s,%s,%s,%s,%s,%s)
+        ON CONFLICT (manager_id, entity_type, entity_key, as_of_date, change_type)
         DO NOTHING
         RETURNING id
         """,
         (
-            entity_type, change_type, entity_key,
+            manager_id, entity_type, change_type, entity_key,
             json.dumps(before) if before is not None else None,
             json.dumps(after) if after is not None else None,
             as_of_date,

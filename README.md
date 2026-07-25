@@ -1,8 +1,8 @@
-# Burgundy Asset Management Tracker
+# North American Asset Manager Tracker
 
-Periodically collects and **permanently preserves** the public footprint of
-[Burgundy Asset Management](https://www.burgundyasset.com/) (Toronto; SEC CIK
-`0001315868`):
+Periodically collects and **permanently preserves** the public footprint of a
+set of North American asset managers — Burgundy, Mawer, EdgePoint, Beutel
+Goodman and Letko Brosseau — each tracked independently:
 
 - **US holdings** — SEC EDGAR 13F-HR filings (incl. amendments)
 - **Korean stakes** — DART 대량보유상황보고 (5%+ disclosures)
@@ -30,10 +30,33 @@ Idempotency keys — EDGAR `accession_no`, DART `rcept_no`, scrapes `content_has
 — make every collector safe to re-run. `personnel` is the one SCD Type 2 table
 (`valid_from` / `valid_to`).
 
+## Tracking several managers
+
+Every snapshot table carries a `manager_id`, and every uniqueness rule is scoped
+to it — `aum_history` is keyed on `(manager_id, as_of_date, source)`, so two
+managers reporting the same quarter cannot overwrite each other.
+
+Add a manager by appending to `config.MANAGERS`; `pipeline.run` syncs the
+registry each pass. A CIK is taken from that filer's own EDGAR documents rather
+than guessed: the wrong ten digits would fill the dashboard with another firm's
+portfolio and still look healthy. Config is authoritative, so correcting a CIK
+there fixes the tracked filer on the next run.
+
+A manager missing what a collector needs — no CIK, no CRD, no website URL, no
+DART search terms — is skipped for that collector, not guessed at:
+
+```bash
+python -m pipeline.backfill --since 2015 --manager mawer   # one manager
+python -m pipeline.backfill --since 2015                   # all of them
+python -m pipeline.reparse --manager burgundy
+```
+
+The dashboard takes `?manager=<slug>`; the header picker switches between them.
+
 ## Layout
 
 ```
-config.py            # all source constants (CIK, DART terms, URLs) — swap to track another manager
+config.py            # MANAGERS registry (CIK, CRD, URLs, DART terms) + shared constants
 db/                  # migrate.py runner + migrations/001_init.sql
 collectors/          # BaseCollector + edgar_13f / dart_5pct / form_adv / website
 parsers/             # pure functions: parse_13f / parse_dart / parse_website

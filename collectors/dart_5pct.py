@@ -23,8 +23,14 @@ _MAJOR_HOLDING_KEYWORDS = ("대량보유", "주식등의")
 class Dart5pctCollector(BaseCollector):
     source = "dart_5pct"
 
-    def __init__(self, *, lookback_days: int = 3):
+    def __init__(self, manager: dict, *, lookback_days: int = 3):
+        super().__init__(manager)
         self.lookback_days = lookback_days
+
+    def applies(self) -> bool:
+        # Korean disclosures are filed under the manager's own reporter name;
+        # a manager with no search terms simply has no Korean footprint here.
+        return bool(config.DART_API_KEY and self.manager.get("dart_terms"))
 
     # ---- discover -------------------------------------------------------
     def discover(self) -> list[FetchTarget]:
@@ -88,12 +94,12 @@ class Dart5pctCollector(BaseCollector):
     def persist(self, conn, raw_id, raw_payload, target) -> int:
         rows = parse_dart_majorstock(
             raw_payload,
-            search_terms=config.DART_SEARCH_TERMS,
+            search_terms=list(self.manager.get("dart_terms") or []),
             ticker=target.meta.get("stock_code"),
         )
-        n = repo.insert_kr_holdings(conn, rows, raw_id)
+        n = repo.insert_kr_holdings(conn, self.manager_id, rows, raw_id)
         for r in rows:
-            diff.diff_kr_holdings(conn, r.rcept_no, r.corp_code)
+            diff.diff_kr_holdings(conn, self.manager_id, r.rcept_no, r.corp_code)
         return n
 
     # DART targets have no external_id; dedup happens on content_hash in run().

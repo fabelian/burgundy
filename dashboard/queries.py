@@ -10,14 +10,16 @@ from pipeline import repo
 
 # ---- Overview ------------------------------------------------------------
 
-def aum_series() -> dict[str, list[dict]]:
+def aum_series(manager_id: int) -> dict[str, list[dict]]:
     """AUM time series grouped by source (for multi-series line chart)."""
     with connect() as conn:
         rows = conn.execute(
             """
             SELECT source, as_of_date, aum, currency
-              FROM aum_history ORDER BY source, as_of_date
-            """
+              FROM aum_history WHERE manager_id = %s
+             ORDER BY source, as_of_date
+            """,
+            (manager_id,),
         ).fetchall()
     series: dict[str, list[dict]] = {}
     for r in rows:
@@ -29,7 +31,7 @@ def aum_series() -> dict[str, list[dict]]:
     return series
 
 
-def filing_status() -> Optional[dict]:
+def filing_status(manager_id: int) -> Optional[dict]:
     """Explain the state of 13F reporting for the banner.
 
     Returns None when there are no notices. Otherwise returns the latest notice
@@ -40,12 +42,17 @@ def filing_status() -> Optional[dict]:
         notice = conn.execute(
             """
             SELECT as_of_date, filed_at, form, other_managers
-              FROM filing_notices ORDER BY as_of_date DESC, filed_at DESC LIMIT 1
-            """
+              FROM filing_notices WHERE manager_id = %s
+             ORDER BY as_of_date DESC, filed_at DESC LIMIT 1
+            """,
+            (manager_id,),
         ).fetchone()
         if not notice:
             return None
-        last_hr = conn.execute("SELECT max(as_of_date) AS d FROM holdings").fetchone()
+        last_hr = conn.execute(
+            "SELECT max(as_of_date) AS d FROM holdings WHERE manager_id = %s",
+            (manager_id,),
+        ).fetchone()
     return {
         "notice_as_of": notice["as_of_date"],
         "notice_filed_at": notice["filed_at"],
@@ -54,7 +61,7 @@ def filing_status() -> Optional[dict]:
     }
 
 
-def aum_table() -> list[dict]:
+def aum_table(manager_id: int) -> list[dict]:
     """Every AUM observation with its provenance, newest first.
 
     ``ratio`` compares each value with the previous one for the *same* source,
@@ -68,8 +75,10 @@ def aum_table() -> list[dict]:
                    r.external_id AS accession_no, r.url AS source_url
               FROM aum_history a
               LEFT JOIN raw_documents r ON r.id = a.raw_id
+             WHERE a.manager_id = %s
              ORDER BY a.source, a.as_of_date
-            """
+            """,
+            (manager_id,),
         ).fetchall()
         # Which filing each 13F quarter was summed from — the same selection
         # the series itself uses, so the table explains the number it shows.
@@ -77,7 +86,7 @@ def aum_table() -> list[dict]:
         for r in rows:
             if r["source"] == "13f_total" and r["as_of_date"] not in filings:
                 filings[r["as_of_date"]] = repo.best_filing_for_quarter(
-                    conn, r["as_of_date"])
+                    conn, manager_id, r["as_of_date"])
 
     out: list[dict] = []
     prev: dict[str, float] = {}
@@ -102,67 +111,74 @@ def aum_table() -> list[dict]:
     return out
 
 
-def recent_changes(limit: int = 5) -> list[dict]:
+def recent_changes(manager_id: int, limit: int = 5) -> list[dict]:
     with connect() as conn:
         return conn.execute(
             """
             SELECT detected_at, entity_type, change_type, entity_key,
                    before, after, as_of_date
-              FROM changes ORDER BY detected_at DESC, id DESC LIMIT %s
+              FROM changes WHERE manager_id = %s
+             ORDER BY detected_at DESC, id DESC LIMIT %s
             """,
-            (limit,),
+            (manager_id, limit),
         ).fetchall()
 
 
 # ---- US Holdings ---------------------------------------------------------
 
-def us_quarters() -> list[date]:
+def us_quarters(manager_id: int) -> list[date]:
     with connect() as conn:
         rows = conn.execute(
-            "SELECT DISTINCT as_of_date FROM holdings ORDER BY as_of_date DESC"
+            "SELECT DISTINCT as_of_date FROM holdings"
+            " WHERE manager_id = %s ORDER BY as_of_date DESC",
+            (manager_id,),
         ).fetchall()
     return [r["as_of_date"] for r in rows]
 
 
-def _latest_accession_for_quarter(conn, as_of: date) -> Optional[str]:
+def _latest_accession_for_quarter(conn, manager_id: int,
+                                  as_of: date) -> Optional[str]:
     """The filing whose holdings represent the quarter — same rule as the
     derived AUM series, so the two tabs never disagree about a quarter."""
-    row = repo.best_filing_for_quarter(conn, as_of)
+    row = repo.best_filing_for_quarter(conn, manager_id, as_of)
     return row["accession_no"] if row else None
 
 
-def us_holdings(as_of: Optional[date] = None) -> dict:
+def us_holdings(manager_id: int, as_of: Optional[date] = None) -> dict:
     """Holdings for a quarter (default latest) with prior-quarter delta."""
     with connect() as conn:
         if as_of is None:
             q = conn.execute(
-                "SELECT max(as_of_date) AS d FROM holdings"
+                "SELECT max(as_of_date) AS d FROM holdings WHERE manager_id = %s",
+                (manager_id,),
             ).fetchone()
             as_of = q["d"] if q else None
         if as_of is None:
             return {"as_of": None, "rows": [], "prev": None}
 
-        acc = _latest_accession_for_quarter(conn, as_of)
+        acc = _latest_accession_for_quarter(conn, manager_id, as_of)
         cur = conn.execute(
             """
             SELECT cusip, name, ticker, shares, value_kusd, weight
-              FROM holdings WHERE accession_no = %s
+              FROM holdings WHERE manager_id = %s AND accession_no = %s
              ORDER BY value_kusd DESC
             """,
-            (acc,),
+            (manager_id, acc),
         ).fetchall()
 
         prev_q = conn.execute(
-            "SELECT max(as_of_date) AS d FROM holdings WHERE as_of_date < %s",
-            (as_of,),
+            "SELECT max(as_of_date) AS d FROM holdings"
+            " WHERE manager_id = %s AND as_of_date < %s",
+            (manager_id, as_of),
         ).fetchone()
         prev_date = prev_q["d"] if prev_q else None
         prev_map = {}
         if prev_date:
-            prev_acc = _latest_accession_for_quarter(conn, prev_date)
+            prev_acc = _latest_accession_for_quarter(conn, manager_id, prev_date)
             for r in conn.execute(
-                "SELECT cusip, shares FROM holdings WHERE accession_no = %s",
-                (prev_acc,),
+                "SELECT cusip, shares FROM holdings"
+                " WHERE manager_id = %s AND accession_no = %s",
+                (manager_id, prev_acc),
             ).fetchall():
                 prev_map[r["cusip"]] = r["shares"]
 
@@ -177,16 +193,17 @@ def us_holdings(as_of: Optional[date] = None) -> dict:
 
 # ---- Korea ---------------------------------------------------------------
 
-def kr_series() -> dict[str, list[dict]]:
+def kr_series(manager_id: int) -> dict[str, list[dict]]:
     """Ownership-pct trend per corp for the chart."""
     with connect() as conn:
         rows = conn.execute(
             """
             SELECT corp_name, as_of_date, ownership_pct
               FROM kr_holdings
-             WHERE ownership_pct IS NOT NULL
+             WHERE manager_id = %s AND ownership_pct IS NOT NULL
              ORDER BY corp_name, as_of_date
-            """
+            """,
+            (manager_id,),
         ).fetchall()
     series: dict[str, list[dict]] = {}
     for r in rows:
@@ -197,39 +214,75 @@ def kr_series() -> dict[str, list[dict]]:
     return series
 
 
-def kr_history() -> list[dict]:
+def kr_history(manager_id: int) -> list[dict]:
     with connect() as conn:
         return conn.execute(
             """
             SELECT as_of_date, filed_at, rcept_no, corp_name, ticker,
                    shares, ownership_pct, report_type
-              FROM kr_holdings ORDER BY filed_at DESC, corp_name
-            """
+              FROM kr_holdings WHERE manager_id = %s
+             ORDER BY filed_at DESC, corp_name
+            """,
+            (manager_id,),
         ).fetchall()
 
 
 # ---- Changes -------------------------------------------------------------
 
-def changes(entity_type: Optional[str] = None, limit: int = 200) -> list[dict]:
+def changes(manager_id: int, entity_type: Optional[str] = None,
+            limit: int = 200) -> list[dict]:
     q = ("SELECT detected_at, entity_type, change_type, entity_key, "
-         "before, after, as_of_date FROM changes")
-    params: tuple = ()
+         "before, after, as_of_date FROM changes WHERE manager_id = %s")
+    params: tuple = (manager_id,)
     if entity_type and entity_type != "all":
-        q += " WHERE entity_type = %s"
-        params = (entity_type,)
+        q += " AND entity_type = %s"
+        params = params + (entity_type,)
     q += " ORDER BY detected_at DESC, id DESC LIMIT %s"
     params = params + (limit,)
     with connect() as conn:
         return conn.execute(q, params).fetchall()
 
 
-def collector_status(limit: int = 20) -> list[dict]:
+def collector_status(manager_id: int, limit: int = 20) -> list[dict]:
     with connect() as conn:
         return conn.execute(
             """
             SELECT collector, started_at, finished_at, status,
                    new_raw, new_rows, error_msg
-              FROM collector_runs ORDER BY started_at DESC LIMIT %s
+              FROM collector_runs WHERE manager_id = %s
+             ORDER BY started_at DESC LIMIT %s
             """,
-            (limit,),
+            (manager_id, limit),
         ).fetchall()
+
+
+# ---- Managers ------------------------------------------------------------
+
+def manager_list() -> list[dict]:
+    """Tracked managers plus a coverage hint for the picker."""
+    with connect() as conn:
+        return conn.execute(
+            """
+            SELECT m.id, m.slug, m.name, m.cik,
+                   (SELECT count(DISTINCT as_of_date) FROM holdings h
+                     WHERE h.manager_id = m.id) AS quarters
+              FROM managers m
+             WHERE m.is_active
+             ORDER BY m.sort_order, m.name
+            """
+        ).fetchall()
+
+
+def manager_by_slug(slug: Optional[str]) -> Optional[dict]:
+    """Resolve the selected manager, falling back to the first tracked one."""
+    with connect() as conn:
+        if slug:
+            row = conn.execute(
+                "SELECT * FROM managers WHERE slug = %s AND is_active", (slug,)
+            ).fetchone()
+            if row:
+                return row
+        return conn.execute(
+            "SELECT * FROM managers WHERE is_active"
+            " ORDER BY sort_order, name LIMIT 1"
+        ).fetchone()

@@ -22,11 +22,14 @@ from pipeline import diff, repo
 class FormAdvCollector(BaseCollector):
     source = "form_adv"
 
+    def applies(self) -> bool:
+        return bool(self.manager.get("crd"))
+
     def discover(self) -> list[FetchTarget]:
-        if not config.FIRM_CRD:
-            print("[form_adv] FIRM_CRD not set; skipping")
+        if not self.manager.get("crd"):
+            print(f"[{self.log_prefix}] no CRD on file; skipping")
             return []
-        url = config.IAPD_FIRM_URL.format(crd=config.FIRM_CRD)
+        url = config.IAPD_FIRM_URL.format(crd=self.manager["crd"])
         return [FetchTarget(source=self.source, external_id=None, url=url, meta={})]
 
     def fetch(self, target: FetchTarget) -> Optional[RawDoc]:
@@ -50,13 +53,14 @@ class FormAdvCollector(BaseCollector):
         n = 0
         aum = self._extract_raum(data)
         if aum is not None:
-            repo.insert_aum(conn, [aum], raw_id)
-            diff.diff_aum(conn, aum.source, aum.as_of_date)
+            repo.insert_aum(conn, self.manager_id, [aum], raw_id)
+            diff.diff_aum(conn, self.manager_id, aum.source, aum.as_of_date)
             n += 1
 
         people = self._extract_schedule_a(data)
         if people:
-            diff.reconcile_personnel(conn, "form_adv", people, date.today(), raw_id)
+            diff.reconcile_personnel(conn, self.manager_id, "form_adv", people,
+                                     date.today(), raw_id)
         return n
 
     # ---- extraction (defensive; IAPD JSON shape varies) -----------------

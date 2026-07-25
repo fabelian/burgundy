@@ -26,23 +26,23 @@ def _changes(conn, entity_type=None):
 
 # ---- US holdings ---------------------------------------------------------
 
-def test_us_holding_diff_new_exit_increase_decrease(db):
+def test_us_holding_diff_new_exit_increase_decrease(db, manager):
     q1 = "0000000000-24-000001"
     q2 = "0000000000-24-000002"
     # Q1: AAPL 1000, MSFT 500
-    repo.insert_holdings(db, [
+    repo.insert_holdings(db, manager, [
         _holding(q1, date(2024, 3, 31), "AAA", 1000, 100),
         _holding(q1, date(2024, 3, 31), "BBB", 500, 50),
     ], None)
-    diff.diff_us_holdings(db, q1)  # first filing: no diff
+    diff.diff_us_holdings(db, manager, q1)  # first filing: no diff
     assert len(_changes(db)) == 0
 
     # Q2: AAPL 1500 (increase), BBB gone (exit), CCC new
-    repo.insert_holdings(db, [
+    repo.insert_holdings(db, manager, [
         _holding(q2, date(2024, 6, 30), "AAA", 1500, 150),
         _holding(q2, date(2024, 6, 30), "CCC", 200, 20),
     ], None)
-    diff.diff_us_holdings(db, q2)
+    diff.diff_us_holdings(db, manager, q2)
 
     by_type = {c["change_type"]: c for c in _changes(db)}
     assert set(by_type) == {"INCREASED", "EXITED", "NEW_POSITION"}
@@ -53,21 +53,21 @@ def test_us_holding_diff_new_exit_increase_decrease(db):
     assert by_type["NEW_POSITION"]["entity_key"] == "CCC"
 
 
-def test_us_holding_diff_idempotent(db):
+def test_us_holding_diff_idempotent(db, manager):
     q1 = "0000000000-24-000001"
     q2 = "0000000000-24-000002"
-    repo.insert_holdings(db, [_holding(q1, date(2024, 3, 31), "AAA", 1000, 100)], None)
-    repo.insert_holdings(db, [_holding(q2, date(2024, 6, 30), "AAA", 1500, 150)], None)
-    diff.diff_us_holdings(db, q2)
-    diff.diff_us_holdings(db, q2)  # re-run
+    repo.insert_holdings(db, manager, [_holding(q1, date(2024, 3, 31), "AAA", 1000, 100)], None)
+    repo.insert_holdings(db, manager, [_holding(q2, date(2024, 6, 30), "AAA", 1500, 150)], None)
+    diff.diff_us_holdings(db, manager, q2)
+    diff.diff_us_holdings(db, manager, q2)  # re-run
     assert len(_changes(db)) == 1
 
 
-def test_amendment_adds_row_not_update(db):
+def test_amendment_adds_row_not_update(db, manager):
     orig = "0000000000-24-000001"
     amend = "0000000000-24-000002"
-    repo.insert_holdings(db, [_holding(orig, date(2024, 3, 31), "AAA", 1000, 100)], None)
-    repo.insert_holdings(db, [_holding(amend, date(2024, 3, 31), "AAA", 1100, 110,
+    repo.insert_holdings(db, manager, [_holding(orig, date(2024, 3, 31), "AAA", 1000, 100)], None)
+    repo.insert_holdings(db, manager, [_holding(amend, date(2024, 3, 31), "AAA", 1100, 110,
                                        amend=True)], None)
     rows = db.execute("SELECT accession_no, shares FROM holdings ORDER BY id").fetchall()
     assert len(rows) == 2  # original untouched, amendment appended
@@ -77,14 +77,14 @@ def test_amendment_adds_row_not_update(db):
 
 # ---- Korean holdings -----------------------------------------------------
 
-def test_kr_stake_changed(db):
-    repo.insert_kr_holdings(db, [KrHoldingRow(
+def test_kr_stake_changed(db, manager):
+    repo.insert_kr_holdings(db, manager, [KrHoldingRow(
         as_of_date=date(2024, 1, 1), filed_at=date(2024, 1, 1), rcept_no="R1",
         corp_code="C1", corp_name="Corp", shares=1000, ownership_pct=5.0)], None)
-    repo.insert_kr_holdings(db, [KrHoldingRow(
+    repo.insert_kr_holdings(db, manager, [KrHoldingRow(
         as_of_date=date(2024, 3, 1), filed_at=date(2024, 3, 1), rcept_no="R2",
         corp_code="C1", corp_name="Corp", shares=1400, ownership_pct=6.5)], None)
-    diff.diff_kr_holdings(db, "R2", "C1")
+    diff.diff_kr_holdings(db, manager, "R2", "C1")
     changes = _changes(db, "kr_holding")
     assert len(changes) == 1
     assert changes[0]["change_type"] == "STAKE_CHANGED"
@@ -94,13 +94,13 @@ def test_kr_stake_changed(db):
 
 # ---- Personnel SCD2 ------------------------------------------------------
 
-def test_personnel_scd2_title_change_keeps_two_rows(db):
+def test_personnel_scd2_title_change_keeps_two_rows(db, manager):
     p_v1 = [PersonnelRow("Jane Doe", "Analyst", "website_team", date(2024, 1, 1))]
-    diff.reconcile_personnel(db, "website_team", p_v1, date(2024, 1, 1), None)
+    diff.reconcile_personnel(db, manager, "website_team", p_v1, date(2024, 1, 1), None)
 
     p_v2 = [PersonnelRow("Jane Doe", "Portfolio Manager", "website_team",
                          date(2024, 6, 1))]
-    diff.reconcile_personnel(db, "website_team", p_v2, date(2024, 6, 1), None)
+    diff.reconcile_personnel(db, manager, "website_team", p_v2, date(2024, 6, 1), None)
 
     rows = db.execute(
         "SELECT title, valid_from, valid_to FROM personnel "
@@ -116,13 +116,13 @@ def test_personnel_scd2_title_change_keeps_two_rows(db):
     assert "TITLE_CHANGED" in types
 
 
-def test_personnel_join_and_leave(db):
-    diff.reconcile_personnel(db, "website_team",
+def test_personnel_join_and_leave(db, manager):
+    diff.reconcile_personnel(db, manager, "website_team",
                              [PersonnelRow("A B", "CEO", "website_team",
                                            date(2024, 1, 1))],
                              date(2024, 1, 1), None)
     # next scrape: A B gone, C D joined
-    diff.reconcile_personnel(db, "website_team",
+    diff.reconcile_personnel(db, manager, "website_team",
                              [PersonnelRow("C D", "CFO", "website_team",
                                            date(2024, 2, 1))],
                              date(2024, 2, 1), None)

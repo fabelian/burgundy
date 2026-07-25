@@ -18,10 +18,27 @@ def db():
         from db.conn import connect
         with connect() as conn:
             conn.execute("TRUNCATE holdings, kr_holdings, aum_history, personnel, "
-                         "changes, raw_documents RESTART IDENTITY CASCADE")
+                         "changes, raw_documents, filing_notices, collector_runs "
+                         "RESTART IDENTITY CASCADE")
     except Exception as exc:  # pragma: no cover
         pytest.skip(f"database not available: {exc}")
 
     from db.conn import connect
     with connect() as conn:
         yield conn
+
+
+@pytest.fixture
+def manager(db):
+    """The default manager id, so tests read like single-manager code."""
+    from pipeline import managers
+    managers.sync_from_config(db)
+    return managers.by_slug(db, "burgundy")["id"]
+
+
+@pytest.fixture
+def other_manager(db):
+    """A second manager, for isolation tests."""
+    from pipeline import managers
+    managers.sync_from_config(db)
+    return managers.by_slug(db, "mawer")["id"]
