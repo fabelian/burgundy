@@ -85,3 +85,33 @@ def test_one_manager_crashing_does_not_stop_the_others(fake, monkeypatch):
     assert exc.value.code == 1, "a failed manager must not report success"
     slugs = [c["slug"] for c in fake.calls]
     assert "burgundy" in slugs and len(slugs) >= 5, "others still ran"
+
+
+def test_the_korean_sweep_will_not_start_itself(monkeypatch, db):
+    """A deploy re-runs its start command; a default year made that a re-sweep.
+
+    While the config file was selected, every unrelated deploy kicked off hours
+    of DART calls again.
+    """
+    from pipeline import backfill_kr
+
+    for var in ("KR_BACKFILL_SINCE", "KR_BACKFILL_MANAGER", "KR_BACKFILL_LIMIT"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr("sys.argv", ["backfill_kr"])
+
+    with pytest.raises(SystemExit) as exc:
+        backfill_kr.main()
+    assert exc.value.code == 1
+
+
+def test_an_explicit_year_is_accepted(monkeypatch, db):
+    from pipeline import backfill_kr
+
+    monkeypatch.setenv("KR_BACKFILL_SINCE", "2015")
+    monkeypatch.setattr(backfill_kr.config, "DART_API_KEY", "")
+    monkeypatch.setattr("sys.argv", ["backfill_kr"])
+
+    with pytest.raises(SystemExit) as exc:
+        backfill_kr.main()
+    # stops on the missing key, i.e. it got past the opt-in gate
+    assert exc.value.code == 1
