@@ -104,6 +104,20 @@ class Dart5pctCollector(BaseCollector):
             print("[dart_5pct] DART_API_KEY not set; skipping discovery")
             return []
 
+        targets = self._sweep()
+        if not targets and self._detail_type:
+            # An empty sweep is a legitimate answer, but it is also what a wrong
+            # detail code would produce — and that would be read as "this manager
+            # holds nothing in Korea". Confirm against the broad type before
+            # letting the emptiness stand.
+            print(f"[{self.log_prefix}] nothing found with "
+                  f"pblntf_detail_ty={_DETAIL_MAJOR_HOLDING}; "
+                  f"re-checking with pblntf_ty=D")
+            self._detail_type = False
+            targets = self._sweep()
+        return targets
+
+    def _sweep(self) -> list[FetchTarget]:
         seen_corps: dict[str, FetchTarget] = {}
         scanned = 0
         stopped_early = None

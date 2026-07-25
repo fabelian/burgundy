@@ -70,8 +70,9 @@ def test_non_ownership_reports_are_ignored(monkeypatch):
 
 
 def test_a_historical_window_is_chunked(monkeypatch):
+    # a non-empty sweep, so the empty-result re-check does not add a second pass
     calls = _stub_list(monkeypatch, lambda params: {
-        "status": "000", "total_page": 1, "list": []})
+        "status": "000", "total_page": 1, "list": [_entry("A")]})
     Dart5pctCollector(MANAGER, since=date(2015, 1, 1)).discover()
 
     assert len(calls) > 20, "a decade must not be asked for in one request"
@@ -83,7 +84,7 @@ def test_a_historical_window_is_chunked(monkeypatch):
 
 def test_the_daily_collector_only_looks_back_a_few_days(monkeypatch):
     calls = _stub_list(monkeypatch, lambda params: {
-        "status": "000", "total_page": 1, "list": []})
+        "status": "000", "total_page": 1, "list": [_entry("A")]})
     Dart5pctCollector(MANAGER, lookback_days=3).discover()
 
     assert len(calls) == 1
@@ -204,3 +205,25 @@ def test_a_truncated_window_is_reported(monkeypatch, capsys):
     Dart5pctCollector(MANAGER).discover()
     out = capsys.readouterr().out
     assert "WARNING" in out and "400" in out
+
+
+def test_an_empty_detail_sweep_is_confirmed_against_the_broad_type(monkeypatch):
+    """An empty answer and a wrong detail code look identical.
+
+    Left unchecked, a bad code would report "no Korean holdings" — a wrong
+    conclusion about the firm, not just a missing row.
+    """
+    seen = []
+
+    def pages(params):
+        seen.append(dict(params))
+        if "pblntf_detail_ty" in params:
+            return {"status": "013", "message": "no data"}
+        return {"status": "000", "total_page": 1, "list": [_entry("A")]}
+
+    _stub_list(monkeypatch, pages)
+    targets = Dart5pctCollector(MANAGER).discover()
+
+    assert [t.meta["corp_code"] for t in targets] == ["A"]
+    assert any("pblntf_detail_ty" in c for c in seen)
+    assert any(c.get("pblntf_ty") == "D" for c in seen)
