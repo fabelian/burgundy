@@ -13,9 +13,12 @@ from pipeline import repo
 from pipeline.reparse import heal_13f_aum
 
 
-def _holdings(acc, as_of, filed, count, value_each, amendment=False):
-    return [HoldingRow(as_of, filed, acc, amendment, f"C{i:04d}", f"N{i}", 10,
-                       value_each, None, None)
+def _holdings(acc, as_of, filed, count, value_each, amendment=False,
+              shares_each=1_000_000):
+    # shares_each puts the implied price at ~$0.10, i.e. reported in thousands,
+    # which is what the unit inference reads.
+    return [HoldingRow(as_of, filed, acc, amendment, f"C{i:04d}", f"N{i}",
+                       shares_each, value_each, None, None)
             for i in range(count)]
 
 
@@ -84,3 +87,49 @@ def test_full_restatement_still_wins_on_recency(db, manager):
     assert row["positions"] == 98
     assert row["is_amendment"] is True
     assert row["aum"] == 98 * 100_000 * 1000
+
+
+def test_composition_folds_the_tail_and_recomputes_weights(db, manager):
+    """The pies show the largest positions plus one folded remainder.
+
+    Weights come from the filing's own values, not the stored ``weight``, so a
+    slice always sums against the portfolio actually on screen.
+    """
+    big = _holdings("Q1", date(2025, 3, 31), date(2025, 5, 12), 1, 500_000)
+    small = _holdings("Q1", date(2025, 3, 31), date(2025, 5, 12), 14, 10_000)
+    for i, r in enumerate(small):      # distinct cusips
+        r.cusip = f"S{i:04d}"
+    repo.insert_holdings(db, manager, big + small, None)
+    db.commit()
+
+    comp = queries.us_holdings(manager)["composition"]["current"]
+    assert len(comp) == queries.TOP_N + 1          # top N plus 기타
+    assert comp[-1]["label"] == "기타"
+    assert comp[0]["pct"] > comp[1]["pct"]         # ordered by size
+    assert round(sum(c["pct"] for c in comp)) == 100
+
+    total = 500_000 + 14 * 10_000
+    assert comp[0]["pct"] == round(100 * 500_000 / total, 2)
+
+
+def test_composition_has_no_tail_slice_when_everything_fits(db, manager):
+    rows = _holdings("Q1", date(2025, 3, 31), date(2025, 5, 12), 3, 10_000)
+    for i, r in enumerate(rows):
+        r.cusip = f"F{i:04d}"
+    repo.insert_holdings(db, manager, rows, None)
+    db.commit()
+
+    comp = queries.us_holdings(manager)["composition"]["current"]
+    assert len(comp) == 3
+    assert all(c["label"] != "기타" for c in comp)
+
+
+def test_composition_is_empty_without_a_prior_quarter(db, manager):
+    rows = _holdings("Q1", date(2025, 3, 31), date(2025, 5, 12), 2, 10_000)
+    rows[1].cusip = "OTHER"
+    repo.insert_holdings(db, manager, rows, None)
+    db.commit()
+
+    data = queries.us_holdings(manager)
+    assert data["composition"]["current"]
+    assert data["composition"]["previous"] == []

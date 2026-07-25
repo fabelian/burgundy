@@ -5,9 +5,13 @@ from pipeline import repo
 from pipeline.reparse import heal_13f_aum
 
 
-def _hold(acc, as_of, cusip, value, filed_at=None):
+def _hold(acc, as_of, cusip, value, filed_at=None, shares=1000):
+    """``shares`` sets the implied price, which is how the unit is inferred.
+
+    The default puts it at ~$0.10 — a filing reported in USD-thousands.
+    """
     return HoldingRow(as_of, filed_at or as_of, acc, False, cusip, f"N{cusip}",
-                      10, value, None, None)
+                      shares, value, None, None)
 
 
 def test_heal_fills_missing_13f_total(db, manager):
@@ -22,7 +26,7 @@ def test_heal_fills_missing_13f_total(db, manager):
         "SELECT aum, source FROM aum_history WHERE source='13f_total'"
     ).fetchone()
     assert row["source"] == "13f_total"
-    assert float(row["aum"]) == 200.0  # filed post-2023: whole USD, 150+50
+    assert float(row["aum"]) == 200.0 * 1000  # reported in thousands
 
 
 def test_heal_is_idempotent(db, manager):
@@ -42,15 +46,16 @@ def test_heal_pre_2023_scales_to_dollars(db, manager):
     assert float(row["aum"]) == 100 * 1000  # thousands -> whole USD
 
 
-def test_heal_q4_2022_uses_filing_date_not_period(db, manager):
-    """Q4-2022 is filed in 2023, so its values are already whole dollars."""
+def test_heal_leaves_a_whole_dollar_filing_unscaled(db, manager):
+    """Implied price ~$100/share: already whole dollars, whatever the date."""
     repo.insert_holdings(db, manager, [
-        _hold("A0", date(2022, 12, 31), "AAA", 100, date(2023, 2, 14))], None)
+        _hold("A0", date(2022, 12, 31), "AAA", 100_000_000, date(2023, 2, 14),
+              shares=1_000_000)], None)
     heal_13f_aum(db, manager)
     row = db.execute(
         "SELECT aum FROM aum_history WHERE as_of_date='2022-12-31'"
     ).fetchone()
-    assert float(row["aum"]) == 100  # not scaled by 1000
+    assert float(row["aum"]) == 100_000_000  # not scaled by 1000
 
 
 def test_heal_corrects_a_value_stored_under_the_wrong_rule(db, manager):
@@ -61,22 +66,22 @@ def test_heal_corrects_a_value_stored_under_the_wrong_rule(db, manager):
     """
     repo.insert_holdings(db, manager, [
         _hold("A0", date(2022, 12, 31), "AAA", 100, date(2023, 2, 14))], None)
-    db.execute(
+    db.execute(  # what the old date-based rule stored: unscaled
         "INSERT INTO aum_history (manager_id, as_of_date, aum, currency, source) "
-        "VALUES (%s, '2022-12-31', %s, 'USD', '13f_total')", (manager, 100 * 1000)
+        "VALUES (%s, '2022-12-31', %s, 'USD', '13f_total')", (manager, 100)
     )
 
     assert heal_13f_aum(db, manager) == (0, 1)
     row = db.execute(
         "SELECT aum FROM aum_history WHERE as_of_date='2022-12-31'"
     ).fetchone()
-    assert float(row["aum"]) == 100
+    assert float(row["aum"]) == 100 * 1000
 
     event = db.execute(
         "SELECT before, after, change_type FROM changes "
         " WHERE change_type='AUM_CORRECTED' AND as_of_date='2022-12-31'"
     ).fetchone()
-    assert event["before"]["aum"] == 100_000
-    assert event["after"]["aum"] == 100
+    assert event["before"]["aum"] == 100
+    assert event["after"]["aum"] == 100_000
 
     assert heal_13f_aum(db, manager) == (0, 0)  # settled
