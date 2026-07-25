@@ -129,8 +129,25 @@ once immediately, point the collector service's **Config File** at one of these
 (they omit the cron schedule, so Railway runs them once on deploy, then the
 process exits), then switch back to `railway.collector.json`:
 
-- `railway.backfill.json` — `pipeline.run` once (fills an empty DB with full history).
+- `railway.backfill.json` — `pipeline.backfill` (loads historical 13F filings, then heals each manager's `13f_total` AUM series so a backfilled manager is complete without waiting for the nightly run).
 - `railway.reparse.json` — `pipeline.reparse` (rebuild snapshots/derived rows from stored raw docs without re-fetching; e.g. to backfill the `13f_total` AUM series after a parser change).
+
+Because the start command is fixed, the backfill takes its options from
+environment variables — set them on the service, no extra config file per
+manager:
+
+| variable | default | meaning |
+|---|---|---|
+| `BACKFILL_MANAGER` | `all` | manager slug to load, or `all` |
+| `BACKFILL_SINCE` | `2013` | earliest report year |
+| `BACKFILL_LIMIT` | unset | max filings per manager this run |
+
+So a newly added manager is loaded by setting `BACKFILL_MANAGER=mawer` and
+deploying once. Backfilling is idempotent, so re-running costs nothing but
+time; each manager is independent, and one failing does not stop the rest —
+the run exits non-zero and names who failed. Leaving `BACKFILL_MANAGER` unset
+loads every tracked manager, which is the slower first-time path (SEC requests
+are rate-limited to under 10/s).
 
 The collector branches internally by cadence: EDGAR and DART run every
 invocation; Form ADV and the website scrapes are skipped when their last

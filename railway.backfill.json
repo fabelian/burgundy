@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "python -m db.migrate && python -m pipeline.run",
+    "startCommand": "python -m db.migrate && python -m pipeline.backfill",
     "restartPolicyType": "NEVER"
   }
 }
