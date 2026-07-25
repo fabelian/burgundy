@@ -87,7 +87,7 @@ class Edgar13FCollector(BaseCollector):
             try:
                 data = sec_get(url).json()
             except Exception as exc:  # pragma: no cover - network
-                print(f"[edgar_13f] could not load {url}: {exc}")
+                print(f"[{self.log_prefix}] could not load {url}: {exc}")
                 continue
             yield from self._zip_arrays(data)
 
@@ -112,7 +112,7 @@ class Edgar13FCollector(BaseCollector):
                else self._find_info_table_xml(target.url))
         if xml is None:
             kind = "cover page" if is_notice else "info table"
-            print(f"[edgar_13f] no {kind} found for {target.external_id}")
+            print(f"[{self.log_prefix}] no {kind} found for {target.external_id}")
             return None
         return RawDoc(
             source=self.source,

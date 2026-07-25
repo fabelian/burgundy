@@ -35,15 +35,24 @@ def _env_int(name: str, default=None):
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Backfill Korean 5% disclosures")
-    ap.add_argument("--since", type=int,
-                    default=_env_int("KR_BACKFILL_SINCE", 2015),
-                    help="earliest disclosure year (env KR_BACKFILL_SINCE)")
+    ap.add_argument("--since", type=int, default=_env_int("KR_BACKFILL_SINCE"),
+                    help="earliest disclosure year (env KR_BACKFILL_SINCE). "
+                         "Required — a multi-hour sweep is opted into, "
+                         "never defaulted into.")
     ap.add_argument("--limit", type=int, default=_env_int("KR_BACKFILL_LIMIT"),
                     help="max issuers per manager this run (env KR_BACKFILL_LIMIT)")
     ap.add_argument("--manager",
                     default=os.environ.get("KR_BACKFILL_MANAGER", "all").strip() or "all",
                     help="manager slug, or 'all' (env KR_BACKFILL_MANAGER)")
     args = ap.parse_args()
+
+    if args.since is None:
+        # A deploy platform re-runs its start command on every deployment. With
+        # a default year this sweep restarted itself — hours of DART calls —
+        # every time anything shipped while the config file was selected.
+        print("[backfill_kr] no --since / KR_BACKFILL_SINCE set; refusing to "
+              "start a multi-year sweep by default. Set the year explicitly.")
+        raise SystemExit(1)
 
     if not config.DART_API_KEY:
         print("[backfill_kr] DART_API_KEY not set — nothing can be fetched")

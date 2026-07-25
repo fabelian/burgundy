@@ -249,3 +249,15 @@ def test_progress_is_reported_per_window(monkeypatch, capsys):
     Dart5pctCollector(MANAGER, since=date(2025, 1, 1)).discover()
     out = capsys.readouterr().out
     assert out.count("issuer(s) so far") >= 4, "each window reports progress"
+
+
+def test_edgar_log_lines_name_the_manager():
+    """With five managers tracked, a bare [edgar_13f] line says nothing.
+
+    Every filing-level message has to identify whose filing it was.
+    """
+    from pathlib import Path
+
+    src = Path("collectors/edgar_13f.py").read_text(encoding="utf-8")
+    assert '"[edgar_13f]' not in src and "'[edgar_13f]" not in src
+    assert "self.log_prefix" in src
