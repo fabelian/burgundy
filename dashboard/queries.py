@@ -145,9 +145,10 @@ def _latest_accession_for_quarter(conn, manager_id: int,
 
 
 # How many positions the composition charts name individually before folding
-# the rest into "기타". A single hue carries about seven visually separable
-# steps, so beyond that colour conveys order only and the labels carry identity.
-TOP_N = 10
+# the rest into "기타". Six keeps the slices inside the categorical palette's
+# gate-safe range, so each one gets its own hue and colour carries identity
+# rather than merely rank.
+TOP_N = 6
 
 
 def _composition(conn, manager_id: int, accession: Optional[str],
