@@ -1,20 +1,128 @@
+{% set collected = coverage | selectattr('latest_as_of') | list %}
+{% set top_n_only = fund_holdings | selectattr('disclosure_scope', 'equalto', 'top_n') | list %}
+
 <div class="notice">
-  ⚠️ 한국 지분 공시는 <strong>5% 이상 대량보유 상황보고분만 반영</strong>됩니다.
-  5% 미만 지분은 공시 의무가 없어 여기에 나타나지 않습니다.
+  🇰🇷 한국 보유 종목은 <strong>운용사 자체 펀드 공시(팩트시트)</strong>에서 수집합니다.
+  International / Global / Emerging Markets 맨데이트만 대상이며, 5개 운용사를
+  <strong>한 화면에서 비교</strong>합니다.
+  <br><span class="muted">
+    DART 5% 대량보유 공시는 <em>발행사 지분율</em> 기준이라 삼성전자·SK하이닉스 같은
+    대형주에는 구조적으로 나타날 수 없습니다(5%면 수십조 원). 대형주를 보려면
+    팩트시트가 유일한 경로입니다 — 근거는 <code>docs/korea-holdings.md</code>.
+  </span>
 </div>
 
 <div class="card">
-  <h2>Ownership % over time</h2>
-  {% if kr_series %}
-    <div class="chart-wrap"><canvas id="krChart"></canvas></div>
+  <h2>한국 보유 종목 <span class="muted">— 5개 운용사 전체</span></h2>
+  {% if fund_holdings %}
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>운용사</th><th>펀드</th><th>맨데이트</th>
+          <th>종목</th><th>티커</th>
+          <th class="num">비중</th><th class="num">순위</th>
+          <th>기준일</th><th>공시 범위</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in fund_holdings %}
+        <tr>
+          <td>{{ r.manager }}</td>
+          <td>{{ r.fund }}</td>
+          <td class="muted">{{ r.mandate }}</td>
+          <td><strong>{{ r.security_name }}</strong></td>
+          <td class="muted">{{ r.ticker or '' }}</td>
+          <td class="num">{% if r.weight is not none %}{{ '%.2f'|format(r.weight) }}%{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td class="num muted">{{ r.position_rank or '' }}</td>
+          <td class="muted">{{ r.as_of_date }}</td>
+          <td class="muted">
+            {%- if r.disclosure_scope == 'full' -%}전체 포트폴리오
+            {%- else -%}상위 {{ r.positions_listed or 'N' }}종목만
+            {%- endif -%}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% if top_n_only %}
+    <p class="muted" style="margin-top:10px;">
+      ⚠️ 위 행 중 일부는 <strong>상위 N종목만 인쇄된 팩트시트</strong>에서 나왔습니다.
+      여기에 나타나지 않는 운용사가 <em>보유하지 않는다는 뜻은 아닙니다</em> —
+      인쇄된 목록 밖에 있을 수 있습니다. 영업 접근 시 "미보유"로 단정하지 마십시오.
+    </p>
+    {% endif %}
+  {% elif collected %}
+    <p class="muted">
+      팩트시트는 수집됐지만 한국 종목이 확인되지 않았습니다.
+      상위 N종목만 공시하는 펀드라면 <strong>목록 밖 보유 가능성</strong>이 남아 있습니다 — 아래 커버리지 표를 확인하십시오.
+    </p>
   {% else %}
-    <p class="muted">No Korean disclosures collected yet.</p>
+    <p class="muted">
+      아직 수집된 팩트시트가 없습니다. <code>factsheet</code> 컬렉터가 문서를 받아
+      <code>raw_documents</code>에 적재하며, 파서는 실제 문서로 보정된 뒤 동작합니다
+      (<code>parsers/parse_factsheet.py</code>).
+    </p>
   {% endif %}
 </div>
 
 <div class="card">
-  <h2>Disclosure history</h2>
+  <h2>커버리지 <span class="muted">— 어떤 펀드를 읽고 있는가</span></h2>
+  {% if coverage %}
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>운용사</th><th>펀드</th><th>맨데이트</th><th>주기</th>
+          <th>최신 문서 기준일</th><th class="num">종목 수</th><th>공시 범위</th></tr>
+    </thead>
+    <tbody>
+      {% for c in coverage %}
+      <tr>
+        <td>{{ c.manager }}</td>
+        <td>{{ c.fund }}</td>
+        <td class="muted">{{ c.mandate }}</td>
+        <td class="muted">{{ c.cadence }}</td>
+        <td>{% if c.latest_as_of %}{{ c.latest_as_of }}{% else %}<span class="muted">미수집</span>{% endif %}</td>
+        <td class="num muted">{{ c.positions or '' }}</td>
+        <td class="muted">
+          {%- if c.disclosure_scope == 'full' -%}전체
+          {%- elif c.disclosure_scope -%}상위 N
+          {%- else -%}—{%- endif -%}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+    <p class="muted">
+      추적 중인 펀드가 없습니다. 문서 URL이 <em>확인된</em> 펀드만
+      <code>config.FUNDS</code>에 등록합니다 — 추측한 URL은 매번 조용히 404가 나면서
+      "이 운용사는 공시가 없다"로 읽히기 때문입니다.
+    </p>
+  {% endif %}
+</div>
+
+{% if weight_series %}
+<div class="card">
+  <h2>한국 비중 추이</h2>
+  <div class="chart-wrap"><canvas id="krWeightChart"></canvas></div>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>DART 5% 대량보유 공시 <span class="muted">— 안전망</span></h2>
+  <p class="muted">
+    선택된 운용사 기준입니다. 5% 이상 지분만 공시 의무가 있어 실제로 잡히는 것은
+    소형주뿐이며, 대형주는 여기 나타나지 않습니다. 실제 5% 포지션이 생길 경우를
+    대비해 유지되는 값싼 안전망입니다.
+  </p>
+  {% if kr_series %}
+    <div class="chart-wrap"><canvas id="krChart"></canvas></div>
+  {% endif %}
   {% if history %}
+  <div class="table-wrap">
   <table>
     <thead>
       <tr><th>Filed</th><th>As of</th><th>Company</th><th>Ticker</th>
@@ -35,33 +143,39 @@
       {% endfor %}
     </tbody>
   </table>
-  {% else %}<p class="muted">No disclosures yet.</p>{% endif %}
+  </div>
+  {% else %}<p class="muted">수집된 5% 공시가 없습니다.</p>{% endif %}
 </div>
 
 <script>
 (function(){
-  var series = {{ kr_series | tojson_safe }};
-  var el = document.getElementById('krChart');
-  if(!el || !Object.keys(series).length) return;
-  if(typeof Chart === 'undefined'){ el.outerHTML =
-    '<p class="muted">Chart library failed to load.</p>'; return; }
-  var labelSet = {};
-  Object.keys(series).forEach(function(k){ series[k].forEach(function(p){ labelSet[p.x]=1; }); });
-  var labels = Object.keys(labelSet).sort();
   var palette = ['#6b1f2a','#a23b47','#c98b4b','#4b7d8a','#7d6b4b','#8a4b7d'];
-  var datasets = Object.keys(series).map(function(name, i){
-    var map = {}; series[name].forEach(function(p){ map[p.x] = p.y; });
-    return { label:name,
-             data: labels.map(function(l){ return (l in map) ? map[l] : null; }),
-             borderColor:palette[i % palette.length],
-             backgroundColor:palette[i % palette.length],
-             spanGaps:true, tension:0.1, pointRadius:3 };
-  });
-  new Chart(el, {
-    type:'line',
-    data:{ labels: labels, datasets: datasets },
-    options:{ responsive:true, maintainAspectRatio:false,
-      scales:{ y:{ title:{ display:true, text:'Ownership %' }, beginAtZero:true } } }
-  });
+
+  function lineChart(elId, series, yLabel){
+    var el = document.getElementById(elId);
+    if(!el || !Object.keys(series).length) return;
+    if(typeof Chart === 'undefined'){ el.outerHTML =
+      '<p class="muted">Chart library failed to load.</p>'; return; }
+    var labelSet = {};
+    Object.keys(series).forEach(function(k){ series[k].forEach(function(p){ labelSet[p.x]=1; }); });
+    var labels = Object.keys(labelSet).sort();
+    var datasets = Object.keys(series).map(function(name, i){
+      var map = {}; series[name].forEach(function(p){ map[p.x] = p.y; });
+      return { label:name,
+               data: labels.map(function(l){ return (l in map) ? map[l] : null; }),
+               borderColor:palette[i % palette.length],
+               backgroundColor:palette[i % palette.length],
+               spanGaps:true, tension:0.1, pointRadius:3 };
+    });
+    new Chart(el, {
+      type:'line',
+      data:{ labels: labels, datasets: datasets },
+      options:{ responsive:true, maintainAspectRatio:false,
+        scales:{ y:{ title:{ display:true, text:yLabel }, beginAtZero:true } } }
+    });
+  }
+
+  lineChart('krWeightChart', {{ weight_series | tojson_safe }}, '펀드 내 비중 %');
+  lineChart('krChart', {{ kr_series | tojson_safe }}, 'Ownership %');
 })();
 </script>

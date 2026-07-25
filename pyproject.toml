@@ -12,6 +12,7 @@ dependencies = [
     "lxml>=5.1",
     "beautifulsoup4>=4.12",
     "python-dateutil>=2.9",
+    "pypdf>=4.2",
 ]
 
 [project.optional-dependencies]

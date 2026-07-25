@@ -84,6 +84,44 @@ MANAGERS = [
     },
 ]
 
+# ---------------------------------------------------------------------------
+# Tracked funds (fact-sheet holdings)
+# ---------------------------------------------------------------------------
+# Upserted into the ``funds`` table on every migrate/run, keyed by
+# (manager slug, fund slug).
+#
+# Only International / Global / Emerging Markets mandates belong here: a
+# Canadian or US-only fund cannot hold a Korean security, so listing one would
+# spend a download to learn nothing (docs/korea-holdings.md).
+#
+# ``doc_url_template`` is expanded per period by the fact-sheet collector.
+# Placeholders: {q} quarter 1-4, {yy} 2-digit year, {yyyy} 4-digit year,
+# {mm} 2-digit month.
+#
+# The list is short on purpose. A fund is added once its document URL has been
+# *seen*, not guessed — the same rule the CIKs above follow. The remaining four
+# managers' International/Global/EM funds still need enumerating against their
+# live sites; a template invented here would 404 quietly on every run and read
+# as "this manager discloses nothing".
+FUNDS = [
+    {
+        "manager_slug": "mawer",
+        "slug": "international-equity",
+        "name": "Mawer International Equity Fund",
+        "mandate": "international",
+        "series": "Series A",
+        "currency": "CAD",
+        # Confirmed form: the 2Q24 sheet at this path is where Samsung
+        # Electronics at 1.7% was read (docs/korea-holdings.md).
+        "doc_url_template": (
+            "https://www.mawer.com/mawer-com-cms/assets/funds/"
+            "{q}q{yy}-mawer-international-equity-fund-series-a.pdf"
+        ),
+        "cadence": "quarterly",
+        "sort_order": 0,
+    },
+]
+
 # SEC IAPD / Form ADV. The adviser's CRD number (Item 5.F RAUM lives here).
 # Burgundy's CRD is 114317 (from its 13F cover page). Form ADV / RAUM is filed
 # independently of 13F, so it remains a live AUM source even now that Burgundy's
@@ -136,4 +174,4 @@ DASHBOARD_PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "")
 # Collector cadence: sources that only need weekly refresh
 # ---------------------------------------------------------------------------
 WEEKLY_REFRESH_DAYS = 7
-WEEKLY_COLLECTORS = {"form_adv", "website_team", "website_aum"}
+WEEKLY_COLLECTORS = {"form_adv", "website_team", "website_aum", "factsheet"}

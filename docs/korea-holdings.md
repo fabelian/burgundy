@@ -83,19 +83,61 @@ For genuine near-real-time, the only routes are commercial shareholder-surveilla
 than disclosure, or an issuer's own 실질주주명부 via an IR relationship. Both are outside
 this repo.
 
-## Next step (not yet built)
+## What is built
 
-1. `fund_holdings` table — manager, fund, as-of date, security, weight, country.
-2. A fact-sheet collector per manager: enumerate International/Global/EM funds, fetch the
-   latest quarterly or monthly document, parse the holdings table, flag Korean names.
-3. Replace the Korea tab with per-manager Korean holdings across the five.
+1. **`funds` + `fund_holdings`** (migration `004`). `funds` is the registry of which
+   mandates are worth reading; `fund_holdings` holds manager, fund, as-of date, security,
+   weight and country. Two columns exist to stop a specific wrong conclusion:
 
-**Blocked on seeing a real fact sheet.** The development sandbox has no outbound access
-to the managers' sites (`403` from both WebFetch and curl — the network policy is fixed
-at container start), so a parser written here would be written blind against a format
-never observed, which is how the DART sweep went wrong. Production has the access it
-needs; only development is blocked. Start by obtaining one Mawer International Equity
-fact sheet, then build the parser against it.
+   - `disclosure_scope` (`top_n` / `full`) — most fact sheets print only the top ten.
+     A manager not shown holding Samsung has **not** been shown to be absent from it, and
+     the tab says so rather than letting silence read as "does not hold".
+   - `is_korean` — classified on write by `parsers.securities.is_korean`, not by a `LIKE`
+     over names at read time. `FundHoldingRow` fills it for every row that reaches the
+     database, so no future parser can insert a Samsung position the tab then misses.
+
+   Fact sheets carry no CUSIP, so identity is `security_key` — the normalised printed
+   name. A share class stays in the key (a fund can hold the common and the preferred at
+   once); legal suffixes do not (`POSCO Holdings Inc.` and `POSCO` are one position).
+
+2. **`collectors/factsheet.py`** — expands each tracked fund's URL template over recent
+   periods, downloads the PDF, stores it in `raw_documents` (base64; layer 1 keeps the
+   original bytes). Registered in `pipeline.run` as a **weekly** collector: fact sheets
+   are quarterly, so a daily fetch would re-request the same unchanged PDF six times.
+
+3. **The Korea tab**, rebuilt on `fund_holdings`. It is deliberately the one view that is
+   *not* scoped to the selected manager — the question is which of the five holds Samsung
+   and at what weight, and that is a comparison. Coverage is shown above the holdings so
+   an empty table can be read correctly: a fund with no document collected is *unknown*,
+   not empty. The DART section survives below, labelled as the safety net it is.
+
+## What remains
+
+**The fact-sheet parser is not calibrated.** `parsers.parse_factsheet.parse_factsheet`
+raises `FactsheetFormatUnknown` rather than guessing a layout — writing one blind is how
+the DART sweep went wrong: it ran clean, filled the Korea tab, and every row in it was
+the wrong kind of company. The collector still runs, and that is the point: it fetches
+and keeps the document, which is what calibration needs.
+
+The sandbox has **no outbound network at all** — `example.com` fails identically to
+`mawer.com` (proxy `403` at CONNECT, i.e. policy denial rather than a site-side block),
+so this is not an allowlist that happens to omit Mawer. Two ways forward, either is enough:
+
+- upload one Mawer International Equity fact sheet into the session, or
+- let the collector run in production and read the stored PDF back out of
+  `raw_documents` (`source = 'factsheet'`).
+
+`describe()` and `pdf_text()` in that module are already written and format-independent;
+they report page count and whether a text layer exists, which is what decides between a
+text parser and OCR. `parse_factsheet` then needs to return, per printed position: name,
+weight, country when the sheet has the column, the stated as-of date, and whether the
+list is the whole portfolio or only the top N.
+
+**The other four managers have no funds registered.** `config.FUNDS` holds only Mawer
+International Equity, whose document path is the one confirmed by observation. A fund is
+added once its URL has been *seen*, never guessed — the same rule the CIKs follow. An
+invented template would 404 quietly on every run and read as "this manager discloses
+nothing", which is indistinguishable from a real absence.
 
 ## Operational notes
 
@@ -107,3 +149,10 @@ fact sheet, then build the parser against it.
   A long backfill was killed twice this way. Switch the config file back before merging.
 - The Korean sweep now **refuses to start without an explicit `--since` /
   `KR_BACKFILL_SINCE`**, so it can no longer restart itself on an unrelated deploy.
+- The fact-sheet collector reports `new_raw > 0` with `new_rows = 0` until the parser is
+  calibrated. That is the expected state, and it is visible on the dashboard's collector
+  panel — it is not the same signal as a quiet period, where `new_raw` is 0 too.
+- Local development needs a database: there is no Postgres running in a fresh sandbox and
+  the DB-backed tests silently `skip` without one. `initdb` under `/var/lib/postgresql`
+  (not the scratchpad — the `postgres` user cannot traverse it) and point `DATABASE_URL`
+  at the socket to get the full suite running instead of half of it.

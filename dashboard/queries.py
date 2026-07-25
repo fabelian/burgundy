@@ -240,6 +240,96 @@ def us_holdings(manager_id: int, as_of: Optional[date] = None) -> dict:
 
 
 # ---- Korea ---------------------------------------------------------------
+#
+# The Korea tab is the one view that is deliberately *not* scoped to the
+# selected manager. Its question is "which of the five holds Samsung, and how
+# much", which is a comparison — showing one manager at a time would mean
+# clicking through five tabs to answer it.
+
+def kr_fund_coverage() -> list[dict]:
+    """Every tracked fund and the freshest document read from it.
+
+    Rendered above the holdings so an empty table can be read correctly: a fund
+    with no document collected yet is unknown, not empty, and the two must never
+    look the same to someone about to call a client.
+    """
+    with connect() as conn:
+        return conn.execute(
+            """
+            SELECT m.name AS manager, m.slug AS manager_slug,
+                   f.name AS fund, f.mandate, f.cadence,
+                   h.latest_as_of, h.positions, h.disclosure_scope
+              FROM funds f
+              JOIN managers m ON m.id = f.manager_id
+              LEFT JOIN LATERAL (
+                    SELECT fh.as_of_date AS latest_as_of,
+                           count(*) AS positions,
+                           max(fh.disclosure_scope) AS disclosure_scope
+                      FROM fund_holdings fh
+                     WHERE fh.fund_id = f.id
+                     GROUP BY fh.as_of_date
+                     ORDER BY fh.as_of_date DESC
+                     LIMIT 1
+              ) h ON TRUE
+             WHERE f.is_active AND m.is_active
+             ORDER BY m.sort_order, f.sort_order, f.name
+            """
+        ).fetchall()
+
+
+def kr_fund_holdings() -> list[dict]:
+    """Korean positions across every tracked manager, latest period per fund.
+
+    Only the most recent as-of date of each fund is shown: a fact sheet is a
+    point-in-time statement, and stacking four quarters of the same position
+    would read as four holdings.
+    """
+    with connect() as conn:
+        return conn.execute(
+            """
+            WITH latest AS (
+                SELECT fund_id, max(as_of_date) AS as_of_date
+                  FROM fund_holdings GROUP BY fund_id
+            )
+            SELECT m.name AS manager, m.slug AS manager_slug,
+                   f.name AS fund, f.mandate,
+                   fh.as_of_date, fh.security_name, fh.ticker, fh.country,
+                   fh.weight, fh.position_rank, fh.disclosure_scope,
+                   fh.positions_listed
+              FROM fund_holdings fh
+              JOIN latest l  ON l.fund_id = fh.fund_id
+                            AND l.as_of_date = fh.as_of_date
+              JOIN funds f   ON f.id = fh.fund_id
+              JOIN managers m ON m.id = fh.manager_id
+             WHERE fh.is_korean
+             ORDER BY fh.weight DESC NULLS LAST, m.sort_order, f.name
+            """
+        ).fetchall()
+
+
+def kr_weight_series() -> dict[str, list[dict]]:
+    """Korean weight over time, one line per manager+fund+security."""
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT m.name AS manager, f.name AS fund, fh.security_name,
+                   fh.as_of_date, fh.weight
+              FROM fund_holdings fh
+              JOIN funds f    ON f.id = fh.fund_id
+              JOIN managers m ON m.id = fh.manager_id
+             WHERE fh.is_korean AND fh.weight IS NOT NULL
+             ORDER BY m.sort_order, f.name, fh.security_name, fh.as_of_date
+            """
+        ).fetchall()
+    series: dict[str, list[dict]] = {}
+    for r in rows:
+        label = f"{r['manager']} · {r['security_name']}"
+        series.setdefault(label, []).append({
+            "x": r["as_of_date"].isoformat(),
+            "y": float(r["weight"]),
+        })
+    return series
+
 
 def kr_series(manager_id: int) -> dict[str, list[dict]]:
     """Ownership-pct trend per corp for the chart."""
