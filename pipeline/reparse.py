@@ -79,14 +79,9 @@ def heal_13f_aum(conn) -> tuple[int, int]:
     filled = corrected = 0
     for row in quarters:
         as_of = row["as_of_date"]
-        # latest filing for the quarter (amendment preferred)
-        best = conn.execute(
-            """
-            SELECT accession_no, filed_at FROM holdings WHERE as_of_date = %s
-             ORDER BY filed_at DESC, is_amendment DESC LIMIT 1
-            """,
-            (as_of,),
-        ).fetchone()
+        best = repo.best_filing_for_quarter(conn, as_of)
+        if best is None:
+            continue
         hrows = conn.execute(
             "SELECT value_kusd, raw_id FROM holdings WHERE accession_no = %s",
             (best["accession_no"],),
