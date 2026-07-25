@@ -72,13 +72,14 @@ class Dart5pctCollector(BaseCollector):
             "page_no": str(page_no),
             "page_count": "100",
         }
-        # Ask for major-holding reports specifically. 지분공시 as a whole is
-        # dominated by 임원·주요주주 소유상황보고, which can push a 90-day window
-        # past the page cap and silently drop issuers off the end.
+        # pblntf_ty is always sent. Narrowing further with pblntf_detail_ty is
+        # an optimisation, and an unrecognised parameter is ignored rather than
+        # rejected — sending the detail code *instead* would then leave the
+        # query with no type filter at all, scanning every disclosure DART has.
+        # Layered this way the worst case is the broad scan, not an unfiltered one.
+        params["pblntf_ty"] = "D"          # 지분공시
         if self._detail_type:
             params["pblntf_detail_ty"] = _DETAIL_MAJOR_HOLDING
-        else:
-            params["pblntf_ty"] = "D"
         data = get_json(config.DART_LIST_URL, params=params)
         status = data.get("status")
         if status == "100" and self._detail_type:
@@ -140,8 +141,14 @@ class Dart5pctCollector(BaseCollector):
                     stopped_early = exc
                     break
                 total_pages = int(data.get("total_page") or 0)
-                if page_no == 1 and total_pages > _MAX_PAGES:
-                    truncated.append((start, end, total_pages))
+                if page_no == 1:
+                    if total_pages > _MAX_PAGES:
+                        truncated.append((start, end, total_pages))
+                    # A multi-year sweep is otherwise silent for minutes at a
+                    # time, which is indistinguishable from being stuck.
+                    print(f"[{self.log_prefix}] {start}~{end}: "
+                          f"{total_pages} page(s), {len(seen_corps)} issuer(s) so far",
+                          flush=True)
                 items = data.get("list") or []
                 scanned += len(items)
                 for it in items:

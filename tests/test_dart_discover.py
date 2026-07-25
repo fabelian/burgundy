@@ -180,7 +180,6 @@ def test_asks_only_for_major_holding_reports(monkeypatch):
                                          "list": [_entry("A")]}})
     Dart5pctCollector(MANAGER).discover()
     assert calls[0].get("pblntf_detail_ty") == "D001"
-    assert "pblntf_ty" not in calls[0]
 
 
 def test_falls_back_when_the_detail_code_is_rejected(monkeypatch):
@@ -196,6 +195,7 @@ def test_falls_back_when_the_detail_code_is_rejected(monkeypatch):
     targets = Dart5pctCollector(MANAGER).discover()
     assert [t.meta["corp_code"] for t in targets] == ["A"]
     assert seen[-1].get("pblntf_ty") == "D"
+    assert "pblntf_detail_ty" not in seen[-1]
 
 
 def test_a_truncated_window_is_reported(monkeypatch, capsys):
@@ -227,3 +227,25 @@ def test_an_empty_detail_sweep_is_confirmed_against_the_broad_type(monkeypatch):
     assert [t.meta["corp_code"] for t in targets] == ["A"]
     assert any("pblntf_detail_ty" in c for c in seen)
     assert any(c.get("pblntf_ty") == "D" for c in seen)
+
+
+def test_the_broad_type_is_always_sent(monkeypatch):
+    """An ignored pblntf_detail_ty must not leave the query unfiltered.
+
+    Sending the detail code instead of the type would, on a deployment that
+    ignores unknown parameters, scan every disclosure DART holds — slower than
+    the broad scan it was meant to replace, and polluted with unrelated filings.
+    """
+    calls = _stub_list(monkeypatch, {1: {"status": "000", "total_page": 1,
+                                         "list": [_entry("A")]}})
+    Dart5pctCollector(MANAGER).discover()
+    assert calls[0]["pblntf_ty"] == "D"
+    assert calls[0]["pblntf_detail_ty"] == "D001"
+
+
+def test_progress_is_reported_per_window(monkeypatch, capsys):
+    _stub_list(monkeypatch, lambda params: {
+        "status": "000", "total_page": 1, "list": [_entry("A")]})
+    Dart5pctCollector(MANAGER, since=date(2025, 1, 1)).discover()
+    out = capsys.readouterr().out
+    assert out.count("issuer(s) so far") >= 4, "each window reports progress"
