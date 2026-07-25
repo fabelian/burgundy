@@ -53,7 +53,13 @@ python -m pipeline.reparse --manager burgundy
 
 The dashboard takes `?manager=<slug>`; the header picker switches between them.
 
-## Korean stakes are found backwards
+## Korean stakes
+
+**`docs/korea-holdings.md` records which sources can and cannot show these managers'
+Korean large-cap positions**, with the evidence for each — read it before extending the
+Korean side, so ruled-out routes are not rebuilt.
+
+### How the 5% collector works
 
 DART has no "what does this manager hold" endpoint. Stakes are found by scanning
 issuers that filed an ownership disclosure (`list.json`, 지분공시) and keeping the
