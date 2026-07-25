@@ -73,8 +73,12 @@ def main() -> None:
     try:
         with connect() as conn:
             healed = heal_13f_aum(conn)
-        if healed:
-            print(f"[run] healed {healed} missing 13f_total AUM quarter(s)")
+            h_count = conn.execute("SELECT count(*) c FROM holdings").fetchone()["c"]
+            a_count = conn.execute(
+                "SELECT count(*) c FROM aum_history WHERE source='13f_total'"
+            ).fetchone()["c"]
+        print(f"[run] 13f_total heal: filled {healed} quarter(s); "
+              f"holdings_rows={h_count} 13f_total_aum_rows={a_count}")
     except Exception as exc:
         print(f"[run] 13f_total heal failed: {exc}")
 
