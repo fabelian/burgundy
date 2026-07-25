@@ -139,10 +139,21 @@ def test_json_calls_are_throttled(monkeypatch):
     assert cfg.JSON_RATE_LIMIT_SLEEP > 0
     slept = []
     monkeypatch.setattr(http_mod.time, "sleep", lambda s: slept.append(s))
-    monkeypatch.setattr(http_mod.httpx, "get", lambda *a, **k: _FakeResp())
+    monkeypatch.setattr(http_mod, "_client",
+                        lambda: _FakeClient())
     http_mod._last_json_request[0] = http_mod.time.monotonic()
     http_mod.get_json("https://example.test/api")
     assert slept, "a back-to-back call must wait"
+
+
+def test_json_calls_reuse_one_connection(monkeypatch):
+    """A per-call connection pays a TCP and TLS handshake every time."""
+    from collectors import http as http_mod
+
+    http_mod._json_client[0] = None
+    first, second = http_mod._client(), http_mod._client()
+    assert first is second, "the client must be shared, not rebuilt per call"
+    http_mod._json_client[0] = None
 
 
 class _FakeResp:
@@ -151,6 +162,11 @@ class _FakeResp:
 
     def json(self):
         return {"status": "000", "list": []}
+
+
+class _FakeClient:
+    def get(self, *a, **k):
+        return _FakeResp()
 
 
 def test_asks_only_for_major_holding_reports(monkeypatch):
