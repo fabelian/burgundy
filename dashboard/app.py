@@ -70,6 +70,7 @@ def tab_overview(request: Request, _=Depends(require_auth)):
         "aum_series": queries.aum_series(),
         "recent": queries.recent_changes(5),
         "collectors": queries.collector_status(8),
+        "filing_status": queries.filing_status(),
     })
 
 
@@ -81,6 +82,7 @@ def tab_us(request: Request, quarter: Optional[str] = Query(None),
     return templates.TemplateResponse(request, "us_holdings.html", {
         "data": data,
         "quarters": queries.us_quarters(),
+        "filing_status": queries.filing_status(),
     })
 
 

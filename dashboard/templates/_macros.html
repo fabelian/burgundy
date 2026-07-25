@@ -1,3 +1,18 @@
+{% macro filing_banner(fs) %}
+  {% if fs %}
+  <div class="notice">
+    ⚠️ Burgundy가 <strong>{{ fs.notice_as_of }}</strong> 분기부터
+    <strong>13F-NT (Notice)</strong>를 제출합니다 — 자체 보유내역을 보고하지 않고,
+    보유내역은
+    {% if fs.other_managers %}<strong>{{ fs.other_managers }}</strong>{% else %}다른 매니저{% endif %}가
+    대신 보고합니다(인수에 따른 통합 보고).
+    단독 13F 보유내역의 마지막 분기는 <strong>{{ fs.last_holdings_as_of }}</strong> 입니다.
+    <br><span class="muted">13F 기반 AUM(<code>13f_total</code>)은 이 시점에서 동결됩니다.
+    Form ADV(공식 RAUM)·홈페이지 AUM은 13F와 무관하게 계속 갱신됩니다.</span>
+  </div>
+  {% endif %}
+{% endmacro %}
+
 {% macro change_row(c) %}
   <tr>
     <td class="muted">{{ c.detected_at.strftime('%Y-%m-%d %H:%M') }}</td>

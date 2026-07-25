@@ -18,8 +18,10 @@ CIK = "0001315868"                     # zero-padded 10-digit CIK
 CIK_INT = int(CIK)                     # for endpoints that want no padding
 
 # SEC IAPD / Form ADV. The adviser's CRD number (Item 5.F RAUM lives here).
-# Leave blank to skip Form ADV collection until the CRD is known.
-FIRM_CRD = os.environ.get("FIRM_CRD", "")
+# Burgundy's CRD is 114317 (from its 13F cover page). Form ADV / RAUM is filed
+# independently of 13F, so it remains a live AUM source even now that Burgundy's
+# 13F holdings are reported by its acquirer. Override via env if needed.
+FIRM_CRD = os.environ.get("FIRM_CRD", "114317")
 IAPD_FIRM_URL = "https://api.adviserinfo.sec.gov/search/firm/{crd}"
 
 # DART reporter-name search terms (대량보유상황보고 보고자명 매칭)

@@ -125,3 +125,11 @@ skip, or error — is recorded in `collector_runs` for operational visibility.
 
 - Korean holdings reflect **only 5%+ 대량보유 disclosures**; smaller stakes are not publicly disclosed.
 - 13F covers **US-listed** long positions only (no shorts, cash, or non-US securities).
+- **Reporting transition (Q4 2025):** Burgundy switched from filing its own 13F-HR
+  (Holdings Report) to filing 13F-NT (Notice); its US holdings are now reported by
+  **Bank of Montreal** on the combined filing. The collector records these notices
+  in `filing_notices` and the dashboard shows a banner explaining the change. A
+  combined 13F cannot be split back into Burgundy's slice, so standalone US
+  holdings — and the derived `13f_total` AUM series — end at 2025-09-30. AUM from
+  Form ADV RAUM (CRD 114317) and the website is filed independently and keeps
+  updating.

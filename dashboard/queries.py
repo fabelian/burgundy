@@ -28,6 +28,31 @@ def aum_series() -> dict[str, list[dict]]:
     return series
 
 
+def filing_status() -> Optional[dict]:
+    """Explain the state of 13F reporting for the banner.
+
+    Returns None when there are no notices. Otherwise returns the latest notice
+    (quarter, filer that now reports the holdings) plus the last quarter for
+    which standalone holdings exist — so the UI can say holdings moved away.
+    """
+    with connect() as conn:
+        notice = conn.execute(
+            """
+            SELECT as_of_date, filed_at, form, other_managers
+              FROM filing_notices ORDER BY as_of_date DESC, filed_at DESC LIMIT 1
+            """
+        ).fetchone()
+        if not notice:
+            return None
+        last_hr = conn.execute("SELECT max(as_of_date) AS d FROM holdings").fetchone()
+    return {
+        "notice_as_of": notice["as_of_date"],
+        "notice_filed_at": notice["filed_at"],
+        "other_managers": notice["other_managers"],
+        "last_holdings_as_of": last_hr["d"] if last_hr else None,
+    }
+
+
 def recent_changes(limit: int = 5) -> list[dict]:
     with connect() as conn:
         return conn.execute(
