@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ manager }} — Tracker</title>
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <!-- Chart.js is self-hosted (no CDN) so charts render even when third-party
+       CDNs are blocked; charts use a category axis so no date adapter is needed. -->
+  <script src="/static/chart.umd.js"></script>
   <style>
     :root { --bg:#faf8f6; --card:#fff; --line:#e6ddd6; --wine:#6b1f2a; --wine2:#a23b47; --muted:#8a7f78; }
     * { box-sizing:border-box; }

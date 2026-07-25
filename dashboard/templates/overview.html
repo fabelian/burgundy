@@ -45,18 +45,26 @@
   var series = {{ aum_series | tojson_safe }};
   var el = document.getElementById('aumChart');
   if(!el || !Object.keys(series).length) return;
+  if(typeof Chart === 'undefined'){ el.outerHTML =
+    '<p class="muted">Chart library failed to load. Data exists — see the Changes tab.</p>'; return; }
+  // unified, sorted date labels (category axis -> no date adapter needed)
+  var labelSet = {};
+  Object.keys(series).forEach(function(k){ series[k].forEach(function(p){ labelSet[p.x]=1; }); });
+  var labels = Object.keys(labelSet).sort();
   var palette = ['#6b1f2a','#a23b47','#c98b4b','#4b7d8a','#7d6b4b'];
   var datasets = Object.keys(series).map(function(name, i){
-    return { label: name, data: series[name],
+    var map = {}; series[name].forEach(function(p){ map[p.x] = p.y; });
+    return { label: name,
+             data: labels.map(function(l){ return (l in map) ? map[l] : null; }),
              borderColor: palette[i % palette.length],
-             backgroundColor: palette[i % palette.length], tension:0.2, pointRadius:3 };
+             backgroundColor: palette[i % palette.length],
+             spanGaps: true, tension:0.2, pointRadius:3 };
   });
   new Chart(el, {
     type:'line',
-    data:{ datasets: datasets },
+    data:{ labels: labels, datasets: datasets },
     options:{ responsive:true, maintainAspectRatio:false,
-      scales:{ x:{ type:'time', time:{ unit:'quarter' } },
-               y:{ title:{ display:true, text:'AUM' } } } }
+      scales:{ y:{ title:{ display:true, text:'AUM' } } } }
   });
 })();
 </script>

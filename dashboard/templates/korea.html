@@ -43,18 +43,25 @@
   var series = {{ kr_series | tojson_safe }};
   var el = document.getElementById('krChart');
   if(!el || !Object.keys(series).length) return;
+  if(typeof Chart === 'undefined'){ el.outerHTML =
+    '<p class="muted">Chart library failed to load.</p>'; return; }
+  var labelSet = {};
+  Object.keys(series).forEach(function(k){ series[k].forEach(function(p){ labelSet[p.x]=1; }); });
+  var labels = Object.keys(labelSet).sort();
   var palette = ['#6b1f2a','#a23b47','#c98b4b','#4b7d8a','#7d6b4b','#8a4b7d'];
   var datasets = Object.keys(series).map(function(name, i){
-    return { label:name, data:series[name],
+    var map = {}; series[name].forEach(function(p){ map[p.x] = p.y; });
+    return { label:name,
+             data: labels.map(function(l){ return (l in map) ? map[l] : null; }),
              borderColor:palette[i % palette.length],
-             backgroundColor:palette[i % palette.length], tension:0.1, pointRadius:3, stepped:false };
+             backgroundColor:palette[i % palette.length],
+             spanGaps:true, tension:0.1, pointRadius:3 };
   });
   new Chart(el, {
     type:'line',
-    data:{ datasets: datasets },
+    data:{ labels: labels, datasets: datasets },
     options:{ responsive:true, maintainAspectRatio:false,
-      scales:{ x:{ type:'time', time:{ unit:'month' } },
-               y:{ title:{ display:true, text:'Ownership %' }, beginAtZero:true } } }
+      scales:{ y:{ title:{ display:true, text:'Ownership %' }, beginAtZero:true } } }
   });
 })();
 </script>
