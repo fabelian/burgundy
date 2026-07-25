@@ -88,11 +88,13 @@ def heal_13f_aum(conn, manager_id: int) -> tuple[int, int]:
         if best is None:
             continue
         hrows = conn.execute(
-            "SELECT value_kusd, raw_id FROM holdings"
+            "SELECT value_kusd, shares, raw_id FROM holdings"
             " WHERE manager_id = %s AND accession_no = %s",
             (manager_id, best["accession_no"]),
         ).fetchall()
-        rows = [SimpleNamespace(value_kusd=r["value_kusd"]) for r in hrows]
+        # shares matter: the reported unit is inferred from implied share price
+        rows = [SimpleNamespace(value_kusd=r["value_kusd"], shares=r["shares"])
+                for r in hrows]
         aum = compute_total_aum(rows, as_of, best["filed_at"])
         if aum is None:
             continue

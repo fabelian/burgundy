@@ -144,6 +144,45 @@ def _latest_accession_for_quarter(conn, manager_id: int,
     return row["accession_no"] if row else None
 
 
+# How many positions the composition charts name individually before folding
+# the rest into "기타". A single hue carries about seven visually separable
+# steps, so beyond that colour conveys order only and the labels carry identity.
+TOP_N = 10
+
+
+def _composition(conn, manager_id: int, accession: Optional[str],
+                 limit: int = TOP_N) -> list[dict]:
+    """Largest positions as shares of the filing, with the tail folded in.
+
+    Weights are recomputed from the filing's own values rather than read from
+    ``weight``, so a slice always sums against the portfolio actually shown.
+    """
+    if not accession:
+        return []
+    rows = conn.execute(
+        """
+        SELECT cusip, name, ticker, value_kusd
+          FROM holdings WHERE manager_id = %s AND accession_no = %s
+         ORDER BY value_kusd DESC
+        """,
+        (manager_id, accession),
+    ).fetchall()
+    total = sum(int(r["value_kusd"]) for r in rows)
+    if total <= 0:
+        return []
+
+    out = [{"label": (r["ticker"] or r["name"] or r["cusip"])[:22],
+            "name": r["name"],
+            "value": int(r["value_kusd"]),
+            "pct": round(100 * int(r["value_kusd"]) / total, 2)}
+           for r in rows[:limit]]
+    tail = sum(int(r["value_kusd"]) for r in rows[limit:])
+    if tail > 0:
+        out.append({"label": "기타", "name": f"나머지 {len(rows) - limit}종목",
+                    "value": tail, "pct": round(100 * tail / total, 2)})
+    return out
+
+
 def us_holdings(manager_id: int, as_of: Optional[date] = None) -> dict:
     """Holdings for a quarter (default latest) with prior-quarter delta."""
     with connect() as conn:
@@ -154,7 +193,8 @@ def us_holdings(manager_id: int, as_of: Optional[date] = None) -> dict:
             ).fetchone()
             as_of = q["d"] if q else None
         if as_of is None:
-            return {"as_of": None, "rows": [], "prev": None}
+            return {"as_of": None, "rows": [], "prev": None,
+                    "composition": {"current": [], "previous": []}}
 
         acc = _latest_accession_for_quarter(conn, manager_id, as_of)
         cur = conn.execute(
@@ -173,6 +213,7 @@ def us_holdings(manager_id: int, as_of: Optional[date] = None) -> dict:
         ).fetchone()
         prev_date = prev_q["d"] if prev_q else None
         prev_map = {}
+        prev_acc = None
         if prev_date:
             prev_acc = _latest_accession_for_quarter(conn, manager_id, prev_date)
             for r in conn.execute(
@@ -182,13 +223,19 @@ def us_holdings(manager_id: int, as_of: Optional[date] = None) -> dict:
             ).fetchall():
                 prev_map[r["cusip"]] = r["shares"]
 
+        composition = {
+            "current": _composition(conn, manager_id, acc),
+            "previous": _composition(conn, manager_id, prev_acc),
+        }
+
     out_rows = []
     for r in cur:
         prev_shares = prev_map.get(r["cusip"])
         delta = None if prev_shares is None else int(r["shares"]) - int(prev_shares)
         out_rows.append({**r, "prev_shares": prev_shares, "delta": delta,
                          "is_new": prev_shares is None and prev_date is not None})
-    return {"as_of": as_of, "rows": out_rows, "prev": prev_date}
+    return {"as_of": as_of, "rows": out_rows, "prev": prev_date,
+            "composition": composition}
 
 
 # ---- Korea ---------------------------------------------------------------
