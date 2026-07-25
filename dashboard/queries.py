@@ -53,6 +53,43 @@ def filing_status() -> Optional[dict]:
     }
 
 
+def aum_table() -> list[dict]:
+    """Every AUM observation with its provenance, newest first.
+
+    ``ratio`` compares each value with the previous one for the *same* source,
+    so a mis-scaled or corrupt filing stands out as an order-of-magnitude jump
+    rather than hiding inside a chart whose axis it has already flattened.
+    """
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT a.as_of_date, a.source, a.aum, a.currency, a.fetched_at,
+                   r.external_id AS accession_no, r.url AS source_url
+              FROM aum_history a
+              LEFT JOIN raw_documents r ON r.id = a.raw_id
+             ORDER BY a.source, a.as_of_date
+            """
+        ).fetchall()
+
+    out: list[dict] = []
+    prev: dict[str, float] = {}
+    for r in rows:
+        current = float(r["aum"])
+        previous = prev.get(r["source"])
+        ratio = current / previous if previous else None
+        out.append({
+            **r,
+            "aum": current,
+            "prev_aum": previous,
+            "ratio": ratio,
+            "suspect": ratio is not None and (ratio >= 10 or ratio <= 0.1),
+        })
+        prev[r["source"]] = current
+
+    out.sort(key=lambda x: (x["as_of_date"], x["source"]), reverse=True)
+    return out
+
+
 def recent_changes(limit: int = 5) -> list[dict]:
     with connect() as conn:
         return conn.execute(

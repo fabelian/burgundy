@@ -13,6 +13,22 @@
   {% endif %}
 {% endmacro %}
 
+{% macro aum_source(s) %}
+  {%- if s == '13f_total' -%}13F 합계<br><span class="muted">SEC 13F에서 파생</span>
+  {%- elif s == 'form_adv' -%}Form ADV<br><span class="muted">SEC 공식 RAUM</span>
+  {%- elif s == 'website' -%}홈페이지<br><span class="muted">회사 공개 표기</span>
+  {%- else -%}{{ s }}{%- endif -%}
+{% endmacro %}
+
+{% macro aum_delta(r) %}
+  {%- if r.ratio is none -%}<span class="muted">&mdash;</span>
+  {%- elif r.suspect -%}<span class="down">&times;{{ '%.2f'|format(r.ratio) }}</span>
+  {%- else -%}
+    {%- set pct = (r.ratio - 1) * 100 -%}
+    <span class="{{ 'up' if pct >= 0 else 'down' }}">{{ '%+.1f'|format(pct) }}%</span>
+  {%- endif -%}
+{% endmacro %}
+
 {% macro change_row(c) %}
   <tr>
     <td class="muted">{{ c.detected_at.strftime('%Y-%m-%d %H:%M') }}</td>
