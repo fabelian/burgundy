@@ -18,6 +18,7 @@ from collectors.form_adv import FormAdvCollector
 from collectors.website import WebsiteAumCollector, WebsiteTeamCollector
 from db.conn import connect
 from pipeline import notify, repo
+from pipeline.reparse import heal_13f_aum
 
 # (collector instance, weekly?) — weekly ones honour the skip window.
 COLLECTORS = [
@@ -67,6 +68,15 @@ def main() -> None:
             collector.run()
         except Exception as exc:  # collector.run already records to DB; log here
             print(f"[run] collector {collector.source} crashed: {exc}")
+
+    # self-heal: backfill any derived 13f_total AUM the collectors skipped
+    try:
+        with connect() as conn:
+            healed = heal_13f_aum(conn)
+        if healed:
+            print(f"[run] healed {healed} missing 13f_total AUM quarter(s)")
+    except Exception as exc:
+        print(f"[run] 13f_total heal failed: {exc}")
 
     changes = _new_changes_since(run_started)
     if changes and notify.enabled():

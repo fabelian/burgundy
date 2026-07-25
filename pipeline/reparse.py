@@ -53,6 +53,54 @@ def _reparse_13f(conn) -> int:
     return total
 
 
+def heal_13f_aum(conn) -> int:
+    """Fill the 13f_total AUM series for any quarter that has holdings but no
+    AUM row.
+
+    Runs cheaply on every pipeline invocation: because collectors skip
+    already-fetched filings, a derived series added after the holdings were
+    first collected would otherwise never backfill. Idempotent — only missing
+    quarters are computed.
+    """
+    from types import SimpleNamespace
+
+    missing = conn.execute(
+        """
+        SELECT DISTINCT h.as_of_date
+          FROM holdings h
+         WHERE NOT EXISTS (
+             SELECT 1 FROM aum_history a
+              WHERE a.source = '13f_total' AND a.as_of_date = h.as_of_date
+         )
+        """
+    ).fetchall()
+
+    n = 0
+    for row in missing:
+        as_of = row["as_of_date"]
+        # latest filing for the quarter (amendment preferred)
+        acc = conn.execute(
+            """
+            SELECT accession_no FROM holdings WHERE as_of_date = %s
+             ORDER BY filed_at DESC, is_amendment DESC LIMIT 1
+            """,
+            (as_of,),
+        ).fetchone()["accession_no"]
+        hrows = conn.execute(
+            "SELECT value_kusd, raw_id FROM holdings WHERE accession_no = %s",
+            (acc,),
+        ).fetchall()
+        rows = [SimpleNamespace(value_kusd=r["value_kusd"]) for r in hrows]
+        aum = compute_total_aum(rows, as_of)
+        if aum is None:
+            continue
+        raw_id = next((r["raw_id"] for r in hrows if r["raw_id"] is not None), None)
+        if repo.insert_aum(conn, [aum], raw_id):
+            diff.diff_aum(conn, "13f_total", as_of)
+            n += 1
+    return n
+
+
 def _reparse_dart(conn) -> int:
     rows = conn.execute(
         "SELECT id AS raw_id, payload FROM raw_documents WHERE source = 'dart_5pct'"
