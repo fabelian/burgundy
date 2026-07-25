@@ -40,8 +40,20 @@ def sec_get(url: str, *, timeout: float = 30.0) -> httpx.Response:
     return resp
 
 
+_last_json_request = [0.0]
+
+
 def get_json(url: str, *, params: dict | None = None, timeout: float = 30.0) -> dict:
+    """GET a JSON API, throttled.
+
+    A historical DART sweep issues thousands of calls back to back; without a
+    gap between them the daily quota is reached as fast as the network allows.
+    """
+    elapsed = time.monotonic() - _last_json_request[0]
+    if elapsed < config.JSON_RATE_LIMIT_SLEEP:
+        time.sleep(config.JSON_RATE_LIMIT_SLEEP - elapsed)
     resp = httpx.get(url, params=params, timeout=timeout, follow_redirects=True)
+    _last_json_request[0] = time.monotonic()
     resp.raise_for_status()
     return resp.json()
 

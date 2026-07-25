@@ -24,6 +24,10 @@ _WINDOW_DAYS = 90
 _MAX_PAGES = 100
 
 
+class DartError(RuntimeError):
+    """DART answered with a failure status rather than data."""
+
+
 class Dart5pctCollector(BaseCollector):
     source = "dart_5pct"
 
@@ -72,7 +76,7 @@ class Dart5pctCollector(BaseCollector):
             # Anything else is a failure (bad key, quota, maintenance). Returning
             # an empty list here would record the run as "ok, 0 rows", which is
             # indistinguishable from a quiet week — so fail loudly instead.
-            raise RuntimeError(
+            raise DartError(
                 f"DART list.json status={status} msg={data.get('message')} "
                 f"({start}~{end} page {page_no})")
         return data
@@ -84,10 +88,24 @@ class Dart5pctCollector(BaseCollector):
 
         seen_corps: dict[str, FetchTarget] = {}
         scanned = 0
+        stopped_early = None
         for start, end in self._windows():
+            if stopped_early:
+                break
             page_no, total_pages = 1, 1
             while page_no <= min(total_pages, _MAX_PAGES):
-                data = self._list_page(start, end, page_no)
+                try:
+                    data = self._list_page(start, end, page_no)
+                except DartError as exc:
+                    # A sweep spanning years can exhaust the daily quota partway.
+                    # Throwing away thousands of issuers already found would make
+                    # the run worthless; keep them and let the next run resume.
+                    # With nothing found yet the failure is the whole story, so
+                    # it still propagates.
+                    if not seen_corps:
+                        raise
+                    stopped_early = exc
+                    break
                 total_pages = int(data.get("total_page") or 0)
                 items = data.get("list") or []
                 scanned += len(items)
@@ -107,6 +125,9 @@ class Dart5pctCollector(BaseCollector):
                     )
                 page_no += 1
 
+        if stopped_early:
+            print(f"[{self.log_prefix}] stopped early: {stopped_early} — "
+                  f"keeping what was found; re-run to continue")
         targets = list(seen_corps.values())
         window = self._windows()
         capped = ""
