@@ -23,6 +23,9 @@ _MAJOR_HOLDING_KEYWORDS = ("대량보유", "주식등의")
 _WINDOW_DAYS = 90
 _MAX_PAGES = 100
 
+# list.json 세부유형: 주식등의 대량보유상황보고서
+_DETAIL_MAJOR_HOLDING = "D001"
+
 
 class DartError(RuntimeError):
     """DART answered with a failure status rather than data."""
@@ -37,6 +40,7 @@ class Dart5pctCollector(BaseCollector):
         self.lookback_days = lookback_days
         self.since = since          # historical backfill floor; overrides lookback
         self.limit = limit          # cap issuers per run (DART daily quota)
+        self._detail_type = True    # narrow the list; falls back if rejected
 
     def applies(self) -> bool:
         # Korean disclosures are filed under the manager's own reporter name;
@@ -61,15 +65,29 @@ class Dart5pctCollector(BaseCollector):
         return out
 
     def _list_page(self, start: date, end: date, page_no: int) -> dict:
-        data = get_json(config.DART_LIST_URL, params={
+        params = {
             "crtfc_key": config.DART_API_KEY,
             "bgn_de": start.strftime("%Y%m%d"),
             "end_de": end.strftime("%Y%m%d"),
-            "pblntf_ty": "D",          # 지분공시
             "page_no": str(page_no),
             "page_count": "100",
-        })
+        }
+        # Ask for major-holding reports specifically. 지분공시 as a whole is
+        # dominated by 임원·주요주주 소유상황보고, which can push a 90-day window
+        # past the page cap and silently drop issuers off the end.
+        if self._detail_type:
+            params["pblntf_detail_ty"] = _DETAIL_MAJOR_HOLDING
+        else:
+            params["pblntf_ty"] = "D"
+        data = get_json(config.DART_LIST_URL, params=params)
         status = data.get("status")
+        if status == "100" and self._detail_type:
+            # This DART deployment does not accept the detail code; drop back to
+            # the broad type rather than failing the sweep.
+            print(f"[{self.log_prefix}] pblntf_detail_ty rejected; "
+                  f"falling back to pblntf_ty=D")
+            self._detail_type = False
+            return self._list_page(start, end, page_no)
         if status == "013":            # 조회된 데이터 없음 — a real, empty answer
             return {"list": [], "total_page": 0}
         if status != "000":
@@ -89,6 +107,7 @@ class Dart5pctCollector(BaseCollector):
         seen_corps: dict[str, FetchTarget] = {}
         scanned = 0
         stopped_early = None
+        truncated: list[tuple[date, date, int]] = []
         for start, end in self._windows():
             if stopped_early:
                 break
@@ -107,6 +126,8 @@ class Dart5pctCollector(BaseCollector):
                     stopped_early = exc
                     break
                 total_pages = int(data.get("total_page") or 0)
+                if page_no == 1 and total_pages > _MAX_PAGES:
+                    truncated.append((start, end, total_pages))
                 items = data.get("list") or []
                 scanned += len(items)
                 for it in items:
@@ -125,6 +146,11 @@ class Dart5pctCollector(BaseCollector):
                     )
                 page_no += 1
 
+        if truncated:
+            worst = max(t[2] for t in truncated)
+            print(f"[{self.log_prefix}] WARNING: {len(truncated)} window(s) had "
+                  f"more than {_MAX_PAGES} pages (worst {worst}) — issuers past "
+                  f"the cap were not seen; narrow the window to cover them")
         if stopped_early:
             print(f"[{self.log_prefix}] stopped early: {stopped_early} — "
                   f"keeping what was found; re-run to continue")

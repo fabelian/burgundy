@@ -151,3 +151,40 @@ class _FakeResp:
 
     def json(self):
         return {"status": "000", "list": []}
+
+
+def test_asks_only_for_major_holding_reports(monkeypatch):
+    """지분공시 as a whole is dominated by 임원·주요주주 소유상황보고.
+
+    Requesting the broad type pushes a 90-day window past the page cap, which
+    drops issuers off the end without saying so.
+    """
+    calls = _stub_list(monkeypatch, {1: {"status": "000", "total_page": 1,
+                                         "list": [_entry("A")]}})
+    Dart5pctCollector(MANAGER).discover()
+    assert calls[0].get("pblntf_detail_ty") == "D001"
+    assert "pblntf_ty" not in calls[0]
+
+
+def test_falls_back_when_the_detail_code_is_rejected(monkeypatch):
+    seen = []
+
+    def pages(params):
+        seen.append(dict(params))
+        if "pblntf_detail_ty" in params:
+            return {"status": "100", "message": "부적절한 필드"}
+        return {"status": "000", "total_page": 1, "list": [_entry("A")]}
+
+    _stub_list(monkeypatch, pages)
+    targets = Dart5pctCollector(MANAGER).discover()
+    assert [t.meta["corp_code"] for t in targets] == ["A"]
+    assert seen[-1].get("pblntf_ty") == "D"
+
+
+def test_a_truncated_window_is_reported(monkeypatch, capsys):
+    """Silently keeping the first 100 pages would look like a complete sweep."""
+    _stub_list(monkeypatch, lambda params: {
+        "status": "000", "total_page": 400, "list": [_entry("A")]})
+    Dart5pctCollector(MANAGER).discover()
+    out = capsys.readouterr().out
+    assert "WARNING" in out and "400" in out
