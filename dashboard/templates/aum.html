@@ -17,7 +17,8 @@
   <table>
     <thead>
       <tr><th>As of</th><th>출처</th><th class="num">AUM</th><th>통화</th>
-          <th class="num">전기 대비</th><th>근거 문서</th><th>수집</th></tr>
+          <th class="num">전기 대비</th><th class="num">종목수</th><th>근거 문서</th>
+          <th>수집</th></tr>
     </thead>
     <tbody>
       {% for r in table %}
@@ -30,6 +31,13 @@
         </td>
         <td class="muted">{{ r.currency }}</td>
         <td class="num nowrap">{{ m.aum_delta(r) }}</td>
+        <td class="num nowrap">
+          {%- if r.positions is not none -%}
+            {{ r.positions }}
+            {%- if r.is_amendment %} <span class="badge">수정</span>{% endif -%}
+            {%- if r.filings and r.filings > 1 %} <span class="muted">/{{ r.filings }}건</span>{% endif -%}
+          {%- else -%}<span class="muted">&mdash;</span>{%- endif -%}
+        </td>
         <td class="muted nowrap">
           {%- if r.source_url -%}
             <a href="{{ r.source_url }}" target="_blank" rel="noopener">{{ r.accession_no or '문서' }}</a>
@@ -44,9 +52,12 @@
   </div>
   <p class="muted">
     <code>13f_total</code>은 13F 보유내역 합계에서 파생한 값입니다 — 미국 상장 롱 포지션만
-    포함하므로 회사 전체 AUM과는 다릅니다. SEC가 13F 금액 단위를 2023-01-01 보고분부터
-    USD 천 단위에서 USD 단위로 바꿨기 때문에, 그 경계에서 어긋난 신고분은
-    <span class="badge">이상치?</span>로 표시됩니다.
+    포함하므로 회사 전체 AUM과는 다릅니다.
+    <strong>종목수</strong>는 그 분기의 AUM을 계산할 때 실제로 합산한 신고서의 보유 종목 수이고,
+    <span class="badge">수정</span>은 그 신고서가 수정신고(13F-HR/A)라는 뜻입니다.
+    <code>/N건</code>은 같은 분기에 신고서가 여러 건 있다는 표시입니다.
+    앞뒤 분기보다 종목수가 급격히 적으면, 전체 재작성이 아니라 <em>일부 종목만 담은
+    수정신고</em>를 합산했을 가능성이 높습니다 — 그 경우 합계가 실제보다 작게 나옵니다.
   </p>
   {% else %}<p class="muted">No AUM data yet.</p>{% endif %}
 </div>

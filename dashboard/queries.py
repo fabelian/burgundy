@@ -64,9 +64,22 @@ def aum_table() -> list[dict]:
         rows = conn.execute(
             """
             SELECT a.as_of_date, a.source, a.aum, a.currency, a.fetched_at,
-                   r.external_id AS accession_no, r.url AS source_url
+                   r.external_id AS accession_no, r.url AS source_url,
+                   h.positions, h.is_amendment, h.filings
               FROM aum_history a
               LEFT JOIN raw_documents r ON r.id = a.raw_id
+              LEFT JOIN LATERAL (
+                  SELECT best.is_amendment,
+                         (SELECT count(*) FROM holdings x
+                           WHERE x.accession_no = best.accession_no) AS positions,
+                         (SELECT count(DISTINCT y.accession_no) FROM holdings y
+                           WHERE y.as_of_date = a.as_of_date) AS filings
+                    FROM holdings best
+                   WHERE a.source = '13f_total'
+                     AND best.as_of_date = a.as_of_date
+                   ORDER BY best.filed_at DESC, best.is_amendment DESC
+                   LIMIT 1
+              ) h ON true
              ORDER BY a.source, a.as_of_date
             """
         ).fetchall()
