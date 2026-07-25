@@ -110,6 +110,9 @@ SEC_RATE_LIMIT_SLEEP = 0.2             # seconds between requests (<10 req/s)
 # DART access rules
 # ---------------------------------------------------------------------------
 DART_API_KEY = os.environ.get("DART_API_KEY", "")
+# Client-side gap between JSON API calls (DART). A multi-year sweep is
+# thousands of requests; unthrottled it reaches the daily quota at network speed.
+JSON_RATE_LIMIT_SLEEP = float(os.environ.get("JSON_RATE_LIMIT_SLEEP", "0.15"))
 DART_LIST_URL = "https://opendart.fss.or.kr/api/list.json"
 DART_MAJORSTOCK_URL = "https://opendart.fss.or.kr/api/majorstock.json"
 

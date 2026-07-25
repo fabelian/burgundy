@@ -103,3 +103,51 @@ def test_a_manager_without_search_terms_does_not_apply():
     assert not Dart5pctCollector({"id": 2, "slug": "mawer",
                                   "dart_terms": []}).applies()
     assert Dart5pctCollector(MANAGER).applies()
+
+
+def test_a_quota_hit_partway_keeps_what_was_already_found(monkeypatch):
+    """A years-long sweep can exhaust the daily quota mid-run.
+
+    Discarding thousands of issuers already discovered would make the whole run
+    worthless, so the scan stops and returns them instead.
+    """
+    state = {"n": 0}
+
+    def pages(params):
+        state["n"] += 1
+        if state["n"] == 1:
+            return {"status": "000", "total_page": 1, "list": [_entry("A")]}
+        return {"status": "020", "message": "요청 제한 초과"}
+
+    _stub_list(monkeypatch, pages)
+    targets = Dart5pctCollector(MANAGER, since=date(2015, 1, 1)).discover()
+    assert [t.meta["corp_code"] for t in targets] == ["A"]
+
+
+def test_failing_before_anything_is_found_still_raises(monkeypatch):
+    """With nothing collected, the failure is the entire result — never hide it."""
+    _stub_list(monkeypatch, lambda params: {"status": "020", "message": "quota"})
+    with pytest.raises(dart_5pct.DartError):
+        Dart5pctCollector(MANAGER, since=date(2015, 1, 1)).discover()
+
+
+def test_json_calls_are_throttled(monkeypatch):
+    """Thousands of unthrottled calls reach the quota at network speed."""
+    import config as cfg
+    from collectors import http as http_mod
+
+    assert cfg.JSON_RATE_LIMIT_SLEEP > 0
+    slept = []
+    monkeypatch.setattr(http_mod.time, "sleep", lambda s: slept.append(s))
+    monkeypatch.setattr(http_mod.httpx, "get", lambda *a, **k: _FakeResp())
+    http_mod._last_json_request[0] = http_mod.time.monotonic()
+    http_mod.get_json("https://example.test/api")
+    assert slept, "a back-to-back call must wait"
+
+
+class _FakeResp:
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return {"status": "000", "list": []}
