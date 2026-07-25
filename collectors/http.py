@@ -41,10 +41,29 @@ def sec_get(url: str, *, timeout: float = 30.0) -> httpx.Response:
 
 
 _last_json_request = [0.0]
+_json_client: list[httpx.Client | None] = [None]
+
+
+def _client() -> httpx.Client:
+    """A shared keep-alive client for JSON APIs.
+
+    ``httpx.get`` opens a new connection per call, so a sweep of thousands of
+    requests pays a TCP and a TLS handshake every time — roughly three round
+    trips instead of one. Against DART from outside Korea that tripled the wall
+    clock of a historical backfill. One client reuses the connection.
+    """
+    if _json_client[0] is None:
+        _json_client[0] = httpx.Client(
+            timeout=30.0,
+            follow_redirects=True,
+            limits=httpx.Limits(max_keepalive_connections=4, max_connections=8),
+            headers={"Accept-Encoding": "gzip, deflate"},
+        )
+    return _json_client[0]
 
 
 def get_json(url: str, *, params: dict | None = None, timeout: float = 30.0) -> dict:
-    """GET a JSON API, throttled.
+    """GET a JSON API over a reused connection, throttled.
 
     A historical DART sweep issues thousands of calls back to back; without a
     gap between them the daily quota is reached as fast as the network allows.
@@ -52,7 +71,7 @@ def get_json(url: str, *, params: dict | None = None, timeout: float = 30.0) -> 
     elapsed = time.monotonic() - _last_json_request[0]
     if elapsed < config.JSON_RATE_LIMIT_SLEEP:
         time.sleep(config.JSON_RATE_LIMIT_SLEEP - elapsed)
-    resp = httpx.get(url, params=params, timeout=timeout, follow_redirects=True)
+    resp = _client().get(url, params=params, timeout=timeout)
     _last_json_request[0] = time.monotonic()
     resp.raise_for_status()
     return resp.json()

@@ -70,8 +70,9 @@ def test_non_ownership_reports_are_ignored(monkeypatch):
 
 
 def test_a_historical_window_is_chunked(monkeypatch):
+    # a non-empty sweep, so the empty-result re-check does not add a second pass
     calls = _stub_list(monkeypatch, lambda params: {
-        "status": "000", "total_page": 1, "list": []})
+        "status": "000", "total_page": 1, "list": [_entry("A")]})
     Dart5pctCollector(MANAGER, since=date(2015, 1, 1)).discover()
 
     assert len(calls) > 20, "a decade must not be asked for in one request"
@@ -83,7 +84,7 @@ def test_a_historical_window_is_chunked(monkeypatch):
 
 def test_the_daily_collector_only_looks_back_a_few_days(monkeypatch):
     calls = _stub_list(monkeypatch, lambda params: {
-        "status": "000", "total_page": 1, "list": []})
+        "status": "000", "total_page": 1, "list": [_entry("A")]})
     Dart5pctCollector(MANAGER, lookback_days=3).discover()
 
     assert len(calls) == 1
@@ -139,10 +140,21 @@ def test_json_calls_are_throttled(monkeypatch):
     assert cfg.JSON_RATE_LIMIT_SLEEP > 0
     slept = []
     monkeypatch.setattr(http_mod.time, "sleep", lambda s: slept.append(s))
-    monkeypatch.setattr(http_mod.httpx, "get", lambda *a, **k: _FakeResp())
+    monkeypatch.setattr(http_mod, "_client",
+                        lambda: _FakeClient())
     http_mod._last_json_request[0] = http_mod.time.monotonic()
     http_mod.get_json("https://example.test/api")
     assert slept, "a back-to-back call must wait"
+
+
+def test_json_calls_reuse_one_connection(monkeypatch):
+    """A per-call connection pays a TCP and TLS handshake every time."""
+    from collectors import http as http_mod
+
+    http_mod._json_client[0] = None
+    first, second = http_mod._client(), http_mod._client()
+    assert first is second, "the client must be shared, not rebuilt per call"
+    http_mod._json_client[0] = None
 
 
 class _FakeResp:
@@ -151,3 +163,67 @@ class _FakeResp:
 
     def json(self):
         return {"status": "000", "list": []}
+
+
+class _FakeClient:
+    def get(self, *a, **k):
+        return _FakeResp()
+
+
+def test_asks_only_for_major_holding_reports(monkeypatch):
+    """지분공시 as a whole is dominated by 임원·주요주주 소유상황보고.
+
+    Requesting the broad type pushes a 90-day window past the page cap, which
+    drops issuers off the end without saying so.
+    """
+    calls = _stub_list(monkeypatch, {1: {"status": "000", "total_page": 1,
+                                         "list": [_entry("A")]}})
+    Dart5pctCollector(MANAGER).discover()
+    assert calls[0].get("pblntf_detail_ty") == "D001"
+    assert "pblntf_ty" not in calls[0]
+
+
+def test_falls_back_when_the_detail_code_is_rejected(monkeypatch):
+    seen = []
+
+    def pages(params):
+        seen.append(dict(params))
+        if "pblntf_detail_ty" in params:
+            return {"status": "100", "message": "부적절한 필드"}
+        return {"status": "000", "total_page": 1, "list": [_entry("A")]}
+
+    _stub_list(monkeypatch, pages)
+    targets = Dart5pctCollector(MANAGER).discover()
+    assert [t.meta["corp_code"] for t in targets] == ["A"]
+    assert seen[-1].get("pblntf_ty") == "D"
+
+
+def test_a_truncated_window_is_reported(monkeypatch, capsys):
+    """Silently keeping the first 100 pages would look like a complete sweep."""
+    _stub_list(monkeypatch, lambda params: {
+        "status": "000", "total_page": 400, "list": [_entry("A")]})
+    Dart5pctCollector(MANAGER).discover()
+    out = capsys.readouterr().out
+    assert "WARNING" in out and "400" in out
+
+
+def test_an_empty_detail_sweep_is_confirmed_against_the_broad_type(monkeypatch):
+    """An empty answer and a wrong detail code look identical.
+
+    Left unchecked, a bad code would report "no Korean holdings" — a wrong
+    conclusion about the firm, not just a missing row.
+    """
+    seen = []
+
+    def pages(params):
+        seen.append(dict(params))
+        if "pblntf_detail_ty" in params:
+            return {"status": "013", "message": "no data"}
+        return {"status": "000", "total_page": 1, "list": [_entry("A")]}
+
+    _stub_list(monkeypatch, pages)
+    targets = Dart5pctCollector(MANAGER).discover()
+
+    assert [t.meta["corp_code"] for t in targets] == ["A"]
+    assert any("pblntf_detail_ty" in c for c in seen)
+    assert any(c.get("pblntf_ty") == "D" for c in seen)
