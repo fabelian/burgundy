@@ -13,7 +13,7 @@ from collectors.types import HoldingRow
 from pipeline import heal, managers, repo
 
 
-def _filing(as_of, filed, count, value_each, shares_each):
+def _filing(as_of, filed, count, value_each, shares_each=4_000_000):
     return [HoldingRow(as_of, filed, f"acc-{as_of}", False, f"C{i:04d}", f"N{i}",
                        shares_each, value_each, None, None)
             for i in range(count)]
@@ -87,3 +87,38 @@ def test_scopes_to_one_manager(cli, db, manager, other_manager, monkeypatch):
     rows = db.execute(
         "SELECT manager_id FROM aum_history WHERE source = '13f_total'").fetchall()
     assert [r["manager_id"] for r in rows] == [other_manager]
+
+
+def test_reports_whether_the_unit_came_from_the_filing(cli, db, manager, capsys):
+    """"corrected 0" alone cannot distinguish "already right" from "gave up".
+
+    Without share counts the unit falls back to the filing date — the very rule
+    that was wrong — and the run still prints corrected 0. The coverage figure
+    is what tells the two apart.
+    """
+    repo.insert_holdings(db, manager,
+                         _filing(date(2022, 12, 31), date(2023, 2, 14),
+                                 10, 217_328, shares_each=0), None)
+    db.commit()
+
+    cli.main()
+
+    out = capsys.readouterr().out
+    assert "0/10 positions priced" in out
+    assert "unit from filing DATE" in out
+
+
+def test_explain_shows_the_multiplier_behind_each_quarter(cli, db, manager,
+                                                          monkeypatch, capsys):
+    monkeypatch.setenv("HEAL_EXPLAIN", "1")
+    repo.insert_holdings(db, manager,
+                         _filing(date(2022, 12, 31), date(2023, 2, 14),
+                                 10, 217_328, shares_each=4_000_000), None)
+    db.commit()
+
+    cli.main()
+
+    out = capsys.readouterr().out
+    assert "median $/sh" in out
+    assert "x1000" in out          # thousands inferred from ~$0.05/share
+    assert "2022-12-31" in out
