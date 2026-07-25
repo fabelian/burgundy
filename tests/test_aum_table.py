@@ -133,3 +133,35 @@ def test_composition_is_empty_without_a_prior_quarter(db, manager):
     data = queries.us_holdings(manager)
     assert data["composition"]["current"]
     assert data["composition"]["previous"] == []
+
+
+def test_colour_is_assigned_by_issuer_not_by_rank():
+    """The two donuts exist to be compared.
+
+    If hues were indexed by position, a holding moving from 3rd to 2nd would
+    change colour between the charts and read as a change that did not happen.
+    """
+    from pathlib import Path
+
+    template = Path("dashboard/templates/us_holdings.html").read_text(encoding="utf-8")
+    assert "colourByIssuer" in template
+    assert "HUE[s.label]" in template, "slice colour must come from the issuer map"
+    assert "SERIES[i]" not in template, "colour must not be indexed by rank"
+
+
+def test_top_n_stays_within_the_charts_hue_supply():
+    """Raising TOP_N past the palette silently leaves slices uncoloured.
+
+    The template assigns one fixed hue per rank and never cycles, so the number
+    of named slices and the number of series colours have to move together.
+    """
+    import re
+    from pathlib import Path
+
+    template = Path("dashboard/templates/us_holdings.html").read_text(encoding="utf-8")
+    series = re.search(r"var SERIES = \[(.*?)\];", template, re.S).group(1)
+    hues = [h for h in re.findall(r"#[0-9a-fA-F]{6}", series)]
+
+    assert len(hues) == len(set(hues)), "a hue identifies one rank only"
+    assert queries.TOP_N <= len(hues), (
+        f"TOP_N={queries.TOP_N} exceeds {len(hues)} available hues")

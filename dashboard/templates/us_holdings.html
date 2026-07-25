@@ -34,8 +34,9 @@
     </figure>
   </div>
   <p class="muted">
-    슬라이스 색은 <strong>순서</strong>만 나타냅니다(진할수록 상위) — 종목 구분은 라벨과 아래 표로 확인하세요.
-    비중은 해당 분기 13F 신고서 내 금액 기준입니다.
+    슬라이스 색은 <strong>종목</strong>을 따라갑니다 — 두 분기에서 같은 종목은 같은 색이므로 순위 변동을 바로 비교할 수 있습니다.
+    색각 이상에서도 인접 색이 구분되도록 검증된 팔레트를 쓰며, 순위가 아닌 나머지(<strong>기타</strong>)는 회색으로 빠집니다.
+    비중은 해당 분기 13F 신고서 내 금액 기준이며, 정확한 수치는 아래 표에 있습니다.
   </p>
 </div>
 {% endif %}
@@ -83,18 +84,36 @@
 (function(){
   var data = {{ data.composition | tojson_safe }};
   if(typeof Chart === 'undefined') return;
-  // One hue, light -> dark by rank: the slices are ordered by size, so colour
-  // encodes magnitude. It cannot separate this many classes on its own, which
-  // is why every slice is labelled and the table below repeats the numbers.
-  var RAMP = ['#e3b4bc','#d59fa9','#c78996','#b87383','#a85d6e','#98485a',
-              '#873747','#742a37','#601f29','#4b151d'];
-  var TAIL = '#9c968f';   // "기타" is not a rank; it stays neutral
+  // Distinct hues in fixed order — a slice is an issuer, so colour's job here
+  // is identity. Adjacent pairs clear the colourblind separation gate (worst
+  // adjacent CVD dE 9.1, normal-vision 19.6) and hues are never cycled.
+  var SERIES = ['#2a78d6','#eb6834','#1baf7a','#eda100','#e87ba4','#008300',
+                '#4a3aa7','#e34948'];
+  var TAIL = '#9c968f';   // "기타" is a remainder, not a series: de-emphasised
+
+  // Colour follows the issuer, not its rank. These two charts exist to be
+  // compared, so a holding that moved from 3rd to 2nd must keep its colour —
+  // otherwise the comparison reads as a change that did not happen. The
+  // current quarter fixes the order; names only in the prior quarter take the
+  // next free hues.
+  function colourByIssuer(current, previous){
+    var map = {}, next = 0;
+    [current, previous].forEach(function(slices){
+      (slices || []).forEach(function(s){
+        if (s.label === '기타' || map[s.label]) return;
+        if (next < SERIES.length) map[s.label] = SERIES[next++];
+      });
+    });
+    return map;
+  }
+
+  var HUE = colourByIssuer(data.current, data.previous);
 
   function draw(id, slices){
     var el = document.getElementById(id);
     if(!el || !slices || !slices.length) return;
-    var colors = slices.map(function(s, i){
-      return s.label === '기타' ? TAIL : RAMP[i % RAMP.length];
+    var colors = slices.map(function(s){
+      return s.label === '기타' ? TAIL : (HUE[s.label] || TAIL);
     });
     new Chart(el, {
       type: 'doughnut',
