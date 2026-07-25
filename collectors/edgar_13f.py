@@ -174,7 +174,7 @@ class Edgar13FCollector(BaseCollector):
         n = repo.insert_holdings(conn, rows, raw_id)
         diff.diff_us_holdings(conn, target.external_id)
         # derive an auxiliary AUM point (US long positions) for the time series
-        aum = compute_total_aum(rows, report_date)
+        aum = compute_total_aum(rows, report_date, filing_date)
         if aum is not None:
             repo.insert_aum(conn, [aum], raw_id)
             diff.diff_aum(conn, "13f_total", report_date)

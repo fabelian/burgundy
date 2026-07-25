@@ -15,10 +15,12 @@ from lxml import etree
 
 from collectors.types import AumRow, HoldingRow
 
-# SEC changed the 13F "value" unit from USD-thousands to whole USD for report
-# periods on/after 2023-01-01. We normalise the derived AUM total to whole USD
-# so the 13f_total series stays continuous across that boundary.
-_UNIT_CHANGE_DATE = date(2023, 1, 1)
+# SEC changed the 13F "value" unit from USD-thousands to whole USD. The rule
+# keys off when the report was *filed*, not the period it covers: everything
+# filed on/after 2023-01-03 reports whole dollars. Q4-2022 is the case that
+# makes the difference — its period is in 2022 but it is filed in early 2023,
+# so it already reports whole dollars and must not be scaled.
+_WHOLE_DOLLARS_FILED_FROM = date(2023, 1, 3)
 
 
 def _localname(tag: str) -> str:
@@ -143,16 +145,18 @@ def parse_cover(payload: str | bytes) -> dict:
     return {"report_type": report_type, "other_managers": other}
 
 
-def compute_total_aum(rows: list[HoldingRow], as_of: date) -> AumRow | None:
+def compute_total_aum(rows: list[HoldingRow], as_of: date,
+                      filed_at: date) -> AumRow | None:
     """Derive an approximate AUM figure from a 13F filing (US long positions).
 
     Stored as ``source='13f_total'`` in whole USD. Returns None for an empty
-    filing.
+    filing. ``filed_at`` — not ``as_of`` — decides the unit: the SEC's switch to
+    whole dollars applies to reports *filed* from 2023-01-03 onwards.
     """
     if not rows:
         return None
     total_reported = sum(r.value_kusd for r in rows)
-    multiplier = 1000 if as_of < _UNIT_CHANGE_DATE else 1
+    multiplier = 1000 if filed_at < _WHOLE_DOLLARS_FILED_FROM else 1
     return AumRow(
         as_of_date=as_of,
         aum=float(total_reported * multiplier),

@@ -46,59 +46,84 @@ def _reparse_13f(conn) -> int:
         )
         total += repo.insert_holdings(conn, parsed, r["raw_id"])
         diff.diff_us_holdings(conn, r["external_id"])
-        aum = compute_total_aum(parsed, r["as_of_date"])
+        aum = compute_total_aum(parsed, r["as_of_date"], r["filed_at"])
         if aum is not None:
             repo.insert_aum(conn, [aum], r["raw_id"])
             diff.diff_aum(conn, "13f_total", r["as_of_date"])
     return total
 
 
-def heal_13f_aum(conn) -> int:
-    """Fill the 13f_total AUM series for any quarter that has holdings but no
-    AUM row.
+def heal_13f_aum(conn) -> tuple[int, int]:
+    """Recompute the 13f_total AUM series from stored holdings.
 
-    Runs cheaply on every pipeline invocation: because collectors skip
-    already-fetched filings, a derived series added after the holdings were
-    first collected would otherwise never backfill. Idempotent — only missing
-    quarters are computed.
+    Returns ``(filled, corrected)``.
+
+    Fills quarters that have holdings but no AUM row: collectors skip
+    already-fetched filings, so a derived series added after the holdings were
+    first collected would otherwise never backfill.
+
+    Also *corrects* a stored value that no longer matches what the current
+    scaling rule produces. ``insert_aum`` is ON CONFLICT DO NOTHING and
+    ``aum_history`` is UNIQUE per (as_of_date, source), so a value written under
+    a wrong rule can only be repaired in place — the correction is recorded as
+    an ``AUM_CORRECTED`` event so the audit trail survives the overwrite.
+
+    Idempotent: a run that finds everything already correct changes nothing.
     """
     from types import SimpleNamespace
 
-    missing = conn.execute(
-        """
-        SELECT DISTINCT h.as_of_date
-          FROM holdings h
-         WHERE NOT EXISTS (
-             SELECT 1 FROM aum_history a
-              WHERE a.source = '13f_total' AND a.as_of_date = h.as_of_date
-         )
-        """
+    quarters = conn.execute(
+        "SELECT DISTINCT as_of_date FROM holdings ORDER BY as_of_date"
     ).fetchall()
 
-    n = 0
-    for row in missing:
+    filled = corrected = 0
+    for row in quarters:
         as_of = row["as_of_date"]
         # latest filing for the quarter (amendment preferred)
-        acc = conn.execute(
+        best = conn.execute(
             """
-            SELECT accession_no FROM holdings WHERE as_of_date = %s
+            SELECT accession_no, filed_at FROM holdings WHERE as_of_date = %s
              ORDER BY filed_at DESC, is_amendment DESC LIMIT 1
             """,
             (as_of,),
-        ).fetchone()["accession_no"]
+        ).fetchone()
         hrows = conn.execute(
             "SELECT value_kusd, raw_id FROM holdings WHERE accession_no = %s",
-            (acc,),
+            (best["accession_no"],),
         ).fetchall()
         rows = [SimpleNamespace(value_kusd=r["value_kusd"]) for r in hrows]
-        aum = compute_total_aum(rows, as_of)
+        aum = compute_total_aum(rows, as_of, best["filed_at"])
         if aum is None:
             continue
         raw_id = next((r["raw_id"] for r in hrows if r["raw_id"] is not None), None)
+
         if repo.insert_aum(conn, [aum], raw_id):
             diff.diff_aum(conn, "13f_total", as_of)
-            n += 1
-    return n
+            filled += 1
+            continue
+
+        stored = conn.execute(
+            "SELECT aum FROM aum_history WHERE source = '13f_total' AND as_of_date = %s",
+            (as_of,),
+        ).fetchone()
+        if stored is None or float(stored["aum"]) == aum.aum:
+            continue
+        conn.execute(
+            "UPDATE aum_history SET aum = %s, raw_id = COALESCE(%s, raw_id) "
+            " WHERE source = '13f_total' AND as_of_date = %s",
+            (aum.aum, raw_id, as_of),
+        )
+        repo.insert_change(
+            conn,
+            entity_type="aum",
+            change_type="AUM_CORRECTED",
+            entity_key="13f_total",
+            before={"aum": float(stored["aum"])},
+            after={"aum": aum.aum},
+            as_of_date=as_of,
+        )
+        corrected += 1
+    return filled, corrected
 
 
 def _reparse_dart(conn) -> int:

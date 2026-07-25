@@ -54,7 +54,7 @@ def test_metadata_propagated():
 
 def test_total_aum_post_2023_whole_dollars():
     rows = _load()  # total reported value = 150000 + 50000 = 200000
-    aum = compute_total_aum(rows, date(2024, 3, 31))
+    aum = compute_total_aum(rows, date(2024, 3, 31), date(2024, 5, 15))
     assert aum.source == "13f_total"
     assert aum.currency == "USD"
     assert aum.aum == 200_000        # already whole USD post-2023
@@ -62,9 +62,21 @@ def test_total_aum_post_2023_whole_dollars():
 
 def test_total_aum_pre_2023_thousands_scaled():
     rows = _load()
-    aum = compute_total_aum(rows, date(2022, 12, 31))
+    aum = compute_total_aum(rows, date(2022, 9, 30), date(2022, 11, 14))
     assert aum.aum == 200_000 * 1000  # thousands -> whole USD
 
 
+def test_total_aum_q4_2022_filed_in_2023_is_not_scaled():
+    """The unit follows the filing date, not the period.
+
+    Q4-2022 covers a pre-change period but is filed in early 2023, so it already
+    reports whole dollars. Scaling it produced the 1000x spike that flattened
+    every other quarter in the AUM chart.
+    """
+    rows = _load()
+    aum = compute_total_aum(rows, date(2022, 12, 31), date(2023, 2, 14))
+    assert aum.aum == 200_000
+
+
 def test_total_aum_empty():
-    assert compute_total_aum([], date(2024, 3, 31)) is None
+    assert compute_total_aum([], date(2024, 3, 31), date(2024, 5, 15)) is None
