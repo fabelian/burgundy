@@ -17,14 +17,19 @@
     header h1 { margin:0; font-size:20px; font-weight:600; }
     header .sub { opacity:.8; font-size:13px; margin-top:2px; }
     nav { display:flex; gap:4px; padding:0 16px; background:#fff; border-bottom:1px solid var(--line);
-          position:sticky; top:0; z-index:5; }
+          position:sticky; top:0; z-index:5; overflow-x:auto; -webkit-overflow-scrolling:touch; }
     nav button { border:0; background:none; padding:14px 18px; font-size:14px; cursor:pointer;
-                 color:var(--muted); border-bottom:3px solid transparent; }
+                 color:var(--muted); border-bottom:3px solid transparent; white-space:nowrap; }
     nav button.active { color:var(--wine); border-bottom-color:var(--wine); font-weight:600; }
     main { padding:24px; max-width:1100px; margin:0 auto; }
     .card { background:var(--card); border:1px solid var(--line); border-radius:10px;
             padding:18px; margin-bottom:20px; }
     .card h2 { margin:0 0 14px; font-size:15px; color:var(--wine); }
+    /* Narrow screens: let a wide table scroll inside its card instead of
+       clipping columns or wrapping cells one character per line. */
+    .table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .table-wrap table { min-width:560px; }
+    td.nowrap { white-space:nowrap; }
     table { width:100%; border-collapse:collapse; font-size:13px; }
     th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); }
     th { color:var(--muted); font-weight:600; }
@@ -49,6 +54,7 @@
   <nav>
     <button class="active" hx-get="/tab/overview" hx-target="#content"
             onclick="setActive(this)">Overview</button>
+    <button hx-get="/tab/aum" hx-target="#content" onclick="setActive(this)">AUM</button>
     <button hx-get="/tab/us" hx-target="#content" onclick="setActive(this)">US Holdings</button>
     <button hx-get="/tab/korea" hx-target="#content" onclick="setActive(this)">Korea</button>
     <button hx-get="/tab/changes" hx-target="#content" onclick="setActive(this)">Changes</button>

@@ -92,6 +92,15 @@ def tab_overview(request: Request, _=Depends(require_auth)):
     })
 
 
+@app.get("/tab/aum", response_class=HTMLResponse)
+def tab_aum(request: Request, _=Depends(require_auth)):
+    return templates.TemplateResponse(request, "aum.html", {
+        "aum_series": queries.aum_series(),
+        "table": queries.aum_table(),
+        "filing_status": queries.filing_status(),
+    })
+
+
 @app.get("/tab/us", response_class=HTMLResponse)
 def tab_us(request: Request, quarter: Optional[str] = Query(None),
            _=Depends(require_auth)):

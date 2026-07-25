@@ -1,0 +1,80 @@
+{% import '_macros.html' as m %}
+{{ m.filing_banner(filing_status) }}
+
+<div class="card">
+  <h2>AUM over time</h2>
+  {% if aum_series %}
+    <div class="chart-wrap"><canvas id="aumTabChart"></canvas></div>
+  {% else %}
+    <p class="muted">No AUM data yet. Run the collector to populate history.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>시점별 AUM &amp; 출처</h2>
+  {% if table %}
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>As of</th><th>출처</th><th class="num">AUM</th><th>통화</th>
+          <th class="num">전기 대비</th><th>근거 문서</th><th>수집</th></tr>
+    </thead>
+    <tbody>
+      {% for r in table %}
+      <tr>
+        <td class="nowrap">{{ r.as_of_date }}</td>
+        <td class="nowrap">{{ m.aum_source(r.source) }}</td>
+        <td class="num nowrap">
+          {{ '{:,.0f}'.format(r.aum) }}
+          {%- if r.suspect %} <span class="badge">이상치?</span>{% endif %}
+        </td>
+        <td class="muted">{{ r.currency }}</td>
+        <td class="num nowrap">{{ m.aum_delta(r) }}</td>
+        <td class="muted nowrap">
+          {%- if r.source_url -%}
+            <a href="{{ r.source_url }}" target="_blank" rel="noopener">{{ r.accession_no or '문서' }}</a>
+          {%- elif r.accession_no -%}{{ r.accession_no }}
+          {%- else -%}&mdash;{%- endif -%}
+        </td>
+        <td class="muted nowrap">{{ r.fetched_at.strftime('%Y-%m-%d') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="muted">
+    <code>13f_total</code>은 13F 보유내역 합계에서 파생한 값입니다 — 미국 상장 롱 포지션만
+    포함하므로 회사 전체 AUM과는 다릅니다. SEC가 13F 금액 단위를 2023-01-01 보고분부터
+    USD 천 단위에서 USD 단위로 바꿨기 때문에, 그 경계에서 어긋난 신고분은
+    <span class="badge">이상치?</span>로 표시됩니다.
+  </p>
+  {% else %}<p class="muted">No AUM data yet.</p>{% endif %}
+</div>
+
+<script>
+(function(){
+  var series = {{ aum_series | tojson_safe }};
+  var el = document.getElementById('aumTabChart');
+  if(!el || !Object.keys(series).length) return;
+  if(typeof Chart === 'undefined'){ el.outerHTML =
+    '<p class="muted">Chart library failed to load. Data exists — see the table below.</p>'; return; }
+  var labelSet = {};
+  Object.keys(series).forEach(function(k){ series[k].forEach(function(p){ labelSet[p.x]=1; }); });
+  var labels = Object.keys(labelSet).sort();
+  var palette = ['#6b1f2a','#a23b47','#c98b4b','#4b7d8a','#7d6b4b'];
+  var datasets = Object.keys(series).map(function(name, i){
+    var map = {}; series[name].forEach(function(p){ map[p.x] = p.y; });
+    return { label: name,
+             data: labels.map(function(l){ return (l in map) ? map[l] : null; }),
+             borderColor: palette[i % palette.length],
+             backgroundColor: palette[i % palette.length],
+             spanGaps: true, tension:0.2, pointRadius:3 };
+  });
+  new Chart(el, {
+    type:'line',
+    data:{ labels: labels, datasets: datasets },
+    options:{ responsive:true, maintainAspectRatio:false,
+      scales:{ y:{ title:{ display:true, text:'AUM' } } } }
+  });
+})();
+</script>

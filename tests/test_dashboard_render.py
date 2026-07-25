@@ -46,6 +46,46 @@ def test_script_breaking_characters_are_escaped():
     assert json.loads(payload)["R&D"] == []
 
 
+def _render_aum_tab(table):
+    from dashboard.app import templates
+
+    return templates.get_template("aum.html").render(
+        aum_series=SERIES, table=table, filing_status=None
+    )
+
+
+def _row(as_of, aum, source="13f_total", **kw):
+    from datetime import date, datetime
+
+    base = {"as_of_date": date.fromisoformat(as_of), "source": source, "aum": aum,
+            "currency": "USD", "fetched_at": datetime(2026, 7, 25, 0, 40),
+            "accession_no": None, "source_url": None, "prev_aum": None,
+            "ratio": None, "suspect": False}
+    return {**base, **kw}
+
+
+def test_aum_tab_lists_each_observation_with_its_source():
+    html = _render_aum_tab([
+        _row("2025-09-30", 9.65e9),
+        _row("2025-06-30", 1.02e10, source="form_adv",
+             accession_no="0001234567-25-000001",
+             source_url="https://www.sec.gov/Archives/edgar/data/1315868/x.xml"),
+    ])
+    assert "2025-09-30" in html and "9,650,000,000" in html
+    assert "13F 합계" in html and "Form ADV" in html
+    assert 'href="https://www.sec.gov/Archives/edgar/data/1315868/x.xml"' in html
+
+
+def test_aum_tab_flags_order_of_magnitude_jumps():
+    """A mis-scaled filing must be visible as data, not just a flattened axis."""
+    normal = _row("2025-06-30", 1.0e10, ratio=1.03)
+    spike = _row("2025-09-30", 7.7e15, ratio=770000.0, suspect=True)
+    html = _render_aum_tab([spike, normal])
+    assert "이상치?" in html
+    assert "&times;770000.00" in html
+    assert "+3.0%" in html
+
+
 def test_dates_are_serialised_not_repr():
     from datetime import date
 
