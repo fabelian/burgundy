@@ -23,9 +23,14 @@ from pipeline import diff, repo
 class WebsiteAumCollector(BaseCollector):
     source = "website_aum"
 
+    def applies(self) -> bool:
+        return bool(self.manager.get("website_aum_url"))
+
     def discover(self) -> list[FetchTarget]:
+        if not self.manager.get("website_aum_url"):
+            return []
         return [FetchTarget(source=self.source, external_id=None,
-                            url=config.WEBSITE_AUM_URL, meta={})]
+                            url=self.manager["website_aum_url"], meta={})]
 
     def fetch(self, target: FetchTarget) -> Optional[RawDoc]:
         html = get_text(target.url)
@@ -37,8 +42,8 @@ class WebsiteAumCollector(BaseCollector):
         if aum is None:
             print("[website_aum] no AUM figure found; raw stored only")
             return 0
-        n = repo.insert_aum(conn, [aum], raw_id)
-        diff.diff_aum(conn, "website", aum.as_of_date)
+        n = repo.insert_aum(conn, self.manager_id, [aum], raw_id)
+        diff.diff_aum(conn, self.manager_id, "website", aum.as_of_date)
         return n
 
     def already_have_target(self, conn, target: FetchTarget) -> bool:
@@ -48,9 +53,14 @@ class WebsiteAumCollector(BaseCollector):
 class WebsiteTeamCollector(BaseCollector):
     source = "website_team"
 
+    def applies(self) -> bool:
+        return bool(self.manager.get("website_team_url"))
+
     def discover(self) -> list[FetchTarget]:
+        if not self.manager.get("website_team_url"):
+            return []
         return [FetchTarget(source=self.source, external_id=None,
-                            url=config.WEBSITE_TEAM_URL, meta={})]
+                            url=self.manager["website_team_url"], meta={})]
 
     def fetch(self, target: FetchTarget) -> Optional[RawDoc]:
         html = get_text(target.url)
@@ -64,7 +74,8 @@ class WebsiteTeamCollector(BaseCollector):
             print("[website_team] no personnel parsed; raw stored only")
             return 0
         # SCD2 reconcile handles inserts + diffs; returns event count.
-        diff.reconcile_personnel(conn, "website_team", people, date.today(), raw_id)
+        diff.reconcile_personnel(conn, self.manager_id, "website_team", people,
+                                 date.today(), raw_id)
         return len(people)
 
     def already_have_target(self, conn, target: FetchTarget) -> bool:

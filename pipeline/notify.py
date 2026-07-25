@@ -25,6 +25,7 @@ def send(text: str) -> None:
 
 
 def format_change(row: dict) -> str:
-    return (f"<b>{row['change_type']}</b> [{row['entity_type']}] "
+    who = f"{row['manager']}: " if row.get("manager") else ""
+    return (f"{who}<b>{row['change_type']}</b> [{row['entity_type']}] "
             f"{row['entity_key']}"
             + (f" @ {row['as_of_date']}" if row.get("as_of_date") else ""))

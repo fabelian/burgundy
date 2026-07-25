@@ -20,6 +20,10 @@
           position:sticky; top:0; z-index:5; overflow-x:auto; -webkit-overflow-scrolling:touch; }
     nav button { border:0; background:none; padding:14px 18px; font-size:14px; cursor:pointer;
                  color:var(--muted); border-bottom:3px solid transparent; white-space:nowrap; }
+    header .picker { margin-top:10px; display:flex; align-items:center; gap:8px; }
+    header .picker label { font-size:12px; opacity:.8; }
+    header .picker select { padding:6px 10px; border-radius:6px; border:0;
+                            font-size:14px; max-width:70vw; }
     nav button.active { color:var(--wine); border-bottom-color:var(--wine); font-weight:600; }
     main { padding:24px; max-width:1100px; margin:0 auto; }
     .card { background:var(--card); border:1px solid var(--line); border-radius:10px;
@@ -49,26 +53,56 @@
   <header>
     <h1>{{ manager }}</h1>
     <div class="sub">Asset-management tracker — append-only history of AUM, holdings & people</div>
+    {% if managers and managers|length > 1 %}
+    <div class="picker">
+      <label for="mgr">추적 대상</label>
+      <select id="mgr" onchange="switchManager(this.value)">
+        {% for m in managers %}
+        <option value="{{ m.slug }}" {{ 'selected' if m.slug == selected }}>
+          {{ m.name }}{% if m.quarters %} · {{ m.quarters }}개 분기{% else %} · 미수집{% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
   </header>
 
   <nav>
-    <button class="active" hx-get="/tab/overview" hx-target="#content"
+    <button class="active" data-tab="/tab/overview" hx-target="#content"
             onclick="setActive(this)">Overview</button>
-    <button hx-get="/tab/aum" hx-target="#content" onclick="setActive(this)">AUM</button>
-    <button hx-get="/tab/us" hx-target="#content" onclick="setActive(this)">US Holdings</button>
-    <button hx-get="/tab/korea" hx-target="#content" onclick="setActive(this)">Korea</button>
-    <button hx-get="/tab/changes" hx-target="#content" onclick="setActive(this)">Changes</button>
+    <button data-tab="/tab/aum" hx-target="#content" onclick="setActive(this)">AUM</button>
+    <button data-tab="/tab/us" hx-target="#content" onclick="setActive(this)">US Holdings</button>
+    <button data-tab="/tab/korea" hx-target="#content" onclick="setActive(this)">Korea</button>
+    <button data-tab="/tab/changes" hx-target="#content" onclick="setActive(this)">Changes</button>
   </nav>
 
   <main>
-    <div id="content" hx-get="/tab/overview" hx-trigger="load"></div>
+    <div id="content" hx-trigger="load"></div>
   </main>
 
   <script>
+    // The selected manager scopes every request, so it is appended to each tab
+    // URL rather than kept in a template-baked hx-get.
+    var MANAGER = {{ (selected or '') | tojson_safe }};
+    function tabUrl(path){
+      return MANAGER ? path + '?manager=' + encodeURIComponent(MANAGER) : path;
+    }
+    function wireTabs(){
+      document.querySelectorAll('nav button[data-tab]').forEach(function(b){
+        b.setAttribute('hx-get', tabUrl(b.dataset.tab));
+      });
+      var content = document.getElementById('content');
+      content.setAttribute('hx-get', tabUrl('/tab/overview'));
+      if (window.htmx) htmx.process(document.body);
+    }
+    function switchManager(slug){
+      window.location.search = '?manager=' + encodeURIComponent(slug);
+    }
     function setActive(btn){
       document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
     }
+    wireTabs();
     // Re-run any <script> tags inside swapped-in HTMX content.
     document.body.addEventListener('htmx:afterSwap', function(e){
       e.detail.target.querySelectorAll('script').forEach(function(old){

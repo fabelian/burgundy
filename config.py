@@ -17,6 +17,73 @@ MANAGER_NAME = "Burgundy Asset Management"
 CIK = "0001315868"                     # zero-padded 10-digit CIK
 CIK_INT = int(CIK)                     # for endpoints that want no padding
 
+# ---------------------------------------------------------------------------
+# Tracked managers
+# ---------------------------------------------------------------------------
+# Rows are upserted into the ``managers`` table on every migrate/run, keyed by
+# slug, so adding a peer here is the whole job.
+#
+# ``cik`` is left None for anyone whose CIK has not been confirmed: the EDGAR
+# collector resolves it by name on first run and writes it back. A guessed CIK
+# would silently track the wrong company, which is worse than not tracking one.
+# ``crd`` and the website URLs are optional — the Form ADV and website
+# collectors skip a manager that has none rather than scraping a wrong site.
+MANAGERS = [
+    {
+        "slug": "burgundy",
+        "name": "Burgundy Asset Management",
+        "legal_name": "BURGUNDY ASSET MANAGEMENT LTD.",
+        "cik": "0001315868",
+        "crd": os.environ.get("FIRM_CRD", "114317"),
+        "website_aum_url": "https://www.burgundyasset.com/",
+        "website_team_url": "https://www.burgundyasset.com/about-us/our-team/",
+        "dart_terms": ["버건디", "Burgundy"],
+        "sort_order": 0,
+    },
+    # CIKs below are each confirmed from that filer's own sec.gov/Archives
+    # 13F-HR documents, not inferred from a name search.
+    {
+        "slug": "mawer",
+        "name": "Mawer Investment Management",
+        "legal_name": "MAWER INVESTMENT MANAGEMENT LTD.",
+        "cik": "0001538449",
+        "crd": "159100",
+        "website_aum_url": "https://www.mawer.com/",
+        "website_team_url": "https://www.mawer.com/about/team",
+        "sort_order": 10,
+    },
+    {
+        "slug": "edgepoint",
+        "name": "EdgePoint Investment Group",
+        "legal_name": "EDGEPOINT INVESTMENT GROUP INC.",
+        "cik": "0001481669",
+        "crd": "312152",
+        "website_aum_url": "https://www.edgepointwealth.com/",
+        "website_team_url": "https://www.edgepointwealth.com/your-team/",
+        "sort_order": 20,
+    },
+    {
+        "slug": "beutel-goodman",
+        "name": "Beutel Goodman & Company",
+        "legal_name": "BEUTEL, GOODMAN & CO LTD.",
+        "cik": "0001361974",
+        "crd": "135829",
+        "website_aum_url": "https://www.beutelgoodman.com/",
+        "website_team_url": "https://www.beutelgoodman.com/team/",
+        "sort_order": 30,
+    },
+    {
+        "slug": "letko-brosseau",
+        "name": "Letko Brosseau & Associates",
+        "legal_name": "LETKO, BROSSEAU & ASSOCIATES INC",
+        "cik": "0001297496",
+        "crd": "133221",
+        "website_aum_url": "https://www.lba.ca/",
+        "website_team_url": "https://www.lba.ca/teams/",
+        "sort_order": 40,
+    },
+]
+
 # SEC IAPD / Form ADV. The adviser's CRD number (Item 5.F RAUM lives here).
 # Burgundy's CRD is 114317 (from its 13F cover page). Form ADV / RAUM is filed
 # independently of 13F, so it remains a live AUM source even now that Burgundy's

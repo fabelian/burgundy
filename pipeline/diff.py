@@ -19,7 +19,7 @@ from pipeline import repo
 # US holdings (13F)
 # ---------------------------------------------------------------------------
 
-def _previous_accession(conn, as_of_date: date) -> Optional[str]:
+def _previous_accession(conn, manager_id: int, as_of_date: date) -> Optional[str]:
     """Accession of the best snapshot strictly before ``as_of_date``.
 
     Picks the most recent prior quarter; within a quarter the latest-filed
@@ -29,59 +29,60 @@ def _previous_accession(conn, as_of_date: date) -> Optional[str]:
         """
         SELECT accession_no
           FROM holdings
-         WHERE as_of_date < %s
+         WHERE manager_id = %s AND as_of_date < %s
          ORDER BY as_of_date DESC, filed_at DESC
          LIMIT 1
         """,
-        (as_of_date,),
+        (manager_id, as_of_date),
     ).fetchone()
     return row["accession_no"] if row else None
 
 
-def _holdings_by_cusip(conn, accession_no: str) -> dict[str, dict]:
+def _holdings_by_cusip(conn, manager_id: int, accession_no: str) -> dict[str, dict]:
     rows = conn.execute(
         """
         SELECT cusip, name, shares, value_kusd, weight
-          FROM holdings WHERE accession_no = %s
+          FROM holdings WHERE manager_id = %s AND accession_no = %s
         """,
-        (accession_no,),
+        (manager_id, accession_no),
     ).fetchall()
     return {r["cusip"]: r for r in rows}
 
 
-def diff_us_holdings(conn, accession_no: str) -> int:
+def diff_us_holdings(conn, manager_id: int, accession_no: str) -> int:
     """Compare a just-inserted 13F filing against the prior quarter."""
     meta = conn.execute(
-        "SELECT as_of_date FROM holdings WHERE accession_no = %s LIMIT 1",
-        (accession_no,),
+        "SELECT as_of_date FROM holdings"
+        " WHERE manager_id = %s AND accession_no = %s LIMIT 1",
+        (manager_id, accession_no),
     ).fetchone()
     if not meta:
         return 0
     as_of = meta["as_of_date"]
 
-    prev_acc = _previous_accession(conn, as_of)
-    current = _holdings_by_cusip(conn, accession_no)
+    prev_acc = _previous_accession(conn, manager_id, as_of)
+    current = _holdings_by_cusip(conn, manager_id, accession_no)
     if prev_acc is None:
         return 0  # first filing ever: nothing to diff against
-    previous = _holdings_by_cusip(conn, prev_acc)
+    previous = _holdings_by_cusip(conn, manager_id, prev_acc)
 
     n = 0
     for cusip, cur in current.items():
         prev = previous.get(cusip)
         if prev is None:
-            n += _emit_holding(conn, "NEW_POSITION", cusip, None, cur, as_of)
+            n += _emit_holding(conn, manager_id, "NEW_POSITION", cusip, None, cur, as_of)
         else:
             if cur["shares"] > prev["shares"]:
-                n += _emit_holding(conn, "INCREASED", cusip, prev, cur, as_of)
+                n += _emit_holding(conn, manager_id, "INCREASED", cusip, prev, cur, as_of)
             elif cur["shares"] < prev["shares"]:
-                n += _emit_holding(conn, "DECREASED", cusip, prev, cur, as_of)
+                n += _emit_holding(conn, manager_id, "DECREASED", cusip, prev, cur, as_of)
     for cusip, prev in previous.items():
         if cusip not in current:
-            n += _emit_holding(conn, "EXITED", cusip, prev, None, as_of)
+            n += _emit_holding(conn, manager_id, "EXITED", cusip, prev, None, as_of)
     return n
 
 
-def _emit_holding(conn, change_type, cusip, prev, cur, as_of) -> int:
+def _emit_holding(conn, manager_id, change_type, cusip, prev, cur, as_of) -> int:
     def _pack(r):
         if r is None:
             return None
@@ -94,6 +95,7 @@ def _emit_holding(conn, change_type, cusip, prev, cur, as_of) -> int:
 
     inserted = repo.insert_change(
         conn,
+        manager_id,
         entity_type="us_holding",
         change_type=change_type,
         entity_key=cusip,
@@ -108,14 +110,15 @@ def _emit_holding(conn, change_type, cusip, prev, cur, as_of) -> int:
 # Korean holdings (DART)
 # ---------------------------------------------------------------------------
 
-def diff_kr_holdings(conn, rcept_no: str, corp_code: str) -> int:
+def diff_kr_holdings(conn, manager_id: int, rcept_no: str, corp_code: str) -> int:
     """Compare the just-inserted DART report against the prior one for the corp."""
     cur = conn.execute(
         """
         SELECT as_of_date, corp_name, ownership_pct, shares
-          FROM kr_holdings WHERE rcept_no = %s AND corp_code = %s
+          FROM kr_holdings
+         WHERE manager_id = %s AND rcept_no = %s AND corp_code = %s
         """,
-        (rcept_no, corp_code),
+        (manager_id, rcept_no, corp_code),
     ).fetchone()
     if not cur:
         return 0
@@ -123,10 +126,10 @@ def diff_kr_holdings(conn, rcept_no: str, corp_code: str) -> int:
     prev = conn.execute(
         """
         SELECT ownership_pct, shares FROM kr_holdings
-         WHERE corp_code = %s AND as_of_date < %s
+         WHERE manager_id = %s AND corp_code = %s AND as_of_date < %s
          ORDER BY as_of_date DESC, filed_at DESC LIMIT 1
         """,
-        (corp_code, cur["as_of_date"]),
+        (manager_id, corp_code, cur["as_of_date"]),
     ).fetchone()
     if not prev:
         return 0
@@ -138,6 +141,7 @@ def diff_kr_holdings(conn, rcept_no: str, corp_code: str) -> int:
 
     inserted = repo.insert_change(
         conn,
+        manager_id,
         entity_type="kr_holding",
         change_type="STAKE_CHANGED",
         entity_key=corp_code,
@@ -157,21 +161,22 @@ def _int_or_none(v):
 # AUM
 # ---------------------------------------------------------------------------
 
-def diff_aum(conn, source: str, as_of_date: date) -> int:
+def diff_aum(conn, manager_id: int, source: str, as_of_date: date) -> int:
     """Emit AUM_UPDATED if the new value differs from the prior value for source."""
     cur = conn.execute(
-        "SELECT aum, currency FROM aum_history WHERE source = %s AND as_of_date = %s",
-        (source, as_of_date),
+        "SELECT aum, currency FROM aum_history"
+        " WHERE manager_id = %s AND source = %s AND as_of_date = %s",
+        (manager_id, source, as_of_date),
     ).fetchone()
     if not cur:
         return 0
     prev = conn.execute(
         """
         SELECT aum, currency FROM aum_history
-         WHERE source = %s AND as_of_date < %s
+         WHERE manager_id = %s AND source = %s AND as_of_date < %s
          ORDER BY as_of_date DESC LIMIT 1
         """,
-        (source, as_of_date),
+        (manager_id, source, as_of_date),
     ).fetchone()
     if not prev:
         return 0
@@ -179,6 +184,7 @@ def diff_aum(conn, source: str, as_of_date: date) -> int:
         return 0
     inserted = repo.insert_change(
         conn,
+        manager_id,
         entity_type="aum",
         change_type="AUM_UPDATED",
         entity_key=source,
@@ -195,6 +201,7 @@ def diff_aum(conn, source: str, as_of_date: date) -> int:
 
 def reconcile_personnel(
     conn,
+    manager_id: int,
     source: str,
     scraped: list[PersonnelRow],
     as_of: date,
@@ -209,9 +216,9 @@ def reconcile_personnel(
     current = conn.execute(
         """
         SELECT id, person_name, title FROM personnel
-         WHERE source = %s AND valid_to IS NULL
+         WHERE manager_id = %s AND source = %s AND valid_to IS NULL
         """,
-        (source,),
+        (manager_id, source),
     ).fetchall()
     current_by_name = {r["person_name"]: r for r in current}
     scraped_by_name = {p.person_name: p for p in scraped}
@@ -222,13 +229,13 @@ def reconcile_personnel(
     for name, p in scraped_by_name.items():
         existing = current_by_name.get(name)
         if existing is None:
-            _open_row(conn, p, as_of, raw_id)
-            events += _emit_person(conn, "PERSON_JOINED", name, None,
+            _open_row(conn, manager_id, p, as_of, raw_id)
+            events += _emit_person(conn, manager_id, "PERSON_JOINED", name, None,
                                    {"title": p.title}, as_of)
         elif existing["title"] != p.title:
             _close_row(conn, existing["id"], as_of)
-            _open_row(conn, p, as_of, raw_id)
-            events += _emit_person(conn, "TITLE_CHANGED", name,
+            _open_row(conn, manager_id, p, as_of, raw_id)
+            events += _emit_person(conn, manager_id, "TITLE_CHANGED", name,
                                    {"title": existing["title"]},
                                    {"title": p.title}, as_of)
 
@@ -236,18 +243,20 @@ def reconcile_personnel(
     for name, existing in current_by_name.items():
         if name not in scraped_by_name:
             _close_row(conn, existing["id"], as_of)
-            events += _emit_person(conn, "PERSON_LEFT", name,
+            events += _emit_person(conn, manager_id, "PERSON_LEFT", name,
                                    {"title": existing["title"]}, None, as_of)
     return events
 
 
-def _open_row(conn, p: PersonnelRow, valid_from: date, raw_id: Optional[int]) -> None:
+def _open_row(conn, manager_id: int, p: PersonnelRow, valid_from: date,
+              raw_id: Optional[int]) -> None:
     conn.execute(
         """
-        INSERT INTO personnel (person_name, title, source, valid_from, valid_to, raw_id)
-        VALUES (%s, %s, %s, %s, NULL, %s)
+        INSERT INTO personnel
+          (manager_id, person_name, title, source, valid_from, valid_to, raw_id)
+        VALUES (%s, %s, %s, %s, %s, NULL, %s)
         """,
-        (p.person_name, p.title, p.source, valid_from, raw_id),
+        (manager_id, p.person_name, p.title, p.source, valid_from, raw_id),
     )
 
 
@@ -258,9 +267,10 @@ def _close_row(conn, row_id: int, valid_to: date) -> None:
     )
 
 
-def _emit_person(conn, change_type, name, before, after, as_of) -> int:
+def _emit_person(conn, manager_id, change_type, name, before, after, as_of) -> int:
     inserted = repo.insert_change(
         conn,
+        manager_id,
         entity_type="personnel",
         change_type=change_type,
         entity_key=name,

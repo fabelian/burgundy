@@ -5,7 +5,8 @@
   {% if data.as_of %}
     <div style="margin-bottom:14px;">
       <label class="muted">Quarter:</label>
-      <select hx-get="/tab/us" hx-target="#content" name="quarter">
+      <select hx-get="/tab/us" hx-target="#content" name="quarter"
+              hx-vals='{"manager": "{{ selected }}"}'>
         {% for q in quarters %}
           <option value="{{ q.isoformat() }}" {% if q == data.as_of %}selected{% endif %}>{{ q }}</option>
         {% endfor %}

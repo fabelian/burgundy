@@ -74,57 +74,82 @@ def health():
 
 
 @app.get("/", response_class=HTMLResponse)
-def index(request: Request, _=Depends(require_auth)):
-    return templates.TemplateResponse(
-        request, "index.html", {"manager": config.MANAGER_NAME}
-    )
+def index(request: Request, manager: Optional[str] = Query(None),
+          _=Depends(require_auth)):
+    selected = queries.manager_by_slug(manager)
+    return templates.TemplateResponse(request, "index.html", {
+        "manager": selected["name"] if selected else config.MANAGER_NAME,
+        "managers": queries.manager_list(),
+        "selected": selected["slug"] if selected else None,
+    })
+
+
+def _resolve(slug: Optional[str]):
+    """Every tab renders for exactly one manager; an unknown slug falls back
+    to the first tracked one rather than leaking another manager's data."""
+    selected = queries.manager_by_slug(slug)
+    if selected is None:
+        raise HTTPException(status_code=404, detail="no managers tracked")
+    return selected
 
 
 # ---- HTMX partials -------------------------------------------------------
 
 @app.get("/tab/overview", response_class=HTMLResponse)
-def tab_overview(request: Request, _=Depends(require_auth)):
+def tab_overview(request: Request, manager: Optional[str] = Query(None),
+                 _=Depends(require_auth)):
+    m = _resolve(manager)
     return templates.TemplateResponse(request, "overview.html", {
-        "aum_series": queries.aum_series(),
-        "recent": queries.recent_changes(5),
-        "collectors": queries.collector_status(8),
-        "filing_status": queries.filing_status(),
+        "aum_series": queries.aum_series(m["id"]),
+        "recent": queries.recent_changes(m["id"], 5),
+        "collectors": queries.collector_status(m["id"], 8),
+        "filing_status": queries.filing_status(m["id"]),
+        "selected": m["slug"],
     })
 
 
 @app.get("/tab/aum", response_class=HTMLResponse)
-def tab_aum(request: Request, _=Depends(require_auth)):
+def tab_aum(request: Request, manager: Optional[str] = Query(None),
+            _=Depends(require_auth)):
+    m = _resolve(manager)
     return templates.TemplateResponse(request, "aum.html", {
-        "aum_series": queries.aum_series(),
-        "table": queries.aum_table(),
-        "filing_status": queries.filing_status(),
+        "aum_series": queries.aum_series(m["id"]),
+        "table": queries.aum_table(m["id"]),
+        "filing_status": queries.filing_status(m["id"]),
+        "selected": m["slug"],
     })
 
 
 @app.get("/tab/us", response_class=HTMLResponse)
 def tab_us(request: Request, quarter: Optional[str] = Query(None),
-           _=Depends(require_auth)):
+           manager: Optional[str] = Query(None), _=Depends(require_auth)):
+    m = _resolve(manager)
     as_of = dateparse.parse(quarter).date() if quarter else None
-    data = queries.us_holdings(as_of)
     return templates.TemplateResponse(request, "us_holdings.html", {
-        "data": data,
-        "quarters": queries.us_quarters(),
-        "filing_status": queries.filing_status(),
+        "data": queries.us_holdings(m["id"], as_of),
+        "quarters": queries.us_quarters(m["id"]),
+        "filing_status": queries.filing_status(m["id"]),
+        "selected": m["slug"],
     })
 
 
 @app.get("/tab/korea", response_class=HTMLResponse)
-def tab_korea(request: Request, _=Depends(require_auth)):
+def tab_korea(request: Request, manager: Optional[str] = Query(None),
+              _=Depends(require_auth)):
+    m = _resolve(manager)
     return templates.TemplateResponse(request, "korea.html", {
-        "kr_series": queries.kr_series(),
-        "history": queries.kr_history(),
+        "kr_series": queries.kr_series(m["id"]),
+        "history": queries.kr_history(m["id"]),
+        "selected": m["slug"],
     })
 
 
 @app.get("/tab/changes", response_class=HTMLResponse)
 def tab_changes(request: Request, entity_type: str = Query("all"),
-                _=Depends(require_auth)):
+                manager: Optional[str] = Query(None), _=Depends(require_auth)):
+    m = _resolve(manager)
     return templates.TemplateResponse(request, "changes.html", {
-        "changes": queries.changes(entity_type),
+        "changes": queries.changes(m["id"], entity_type),
         "entity_type": entity_type,
+        "selected": m["slug"],
     })

@@ -32,13 +32,23 @@ def _to_date(s: str) -> date:
 class Edgar13FCollector(BaseCollector):
     source = "edgar_13f"
 
-    def __init__(self, *, since: Optional[date] = None, limit: Optional[int] = None):
+    def __init__(self, manager: dict, *, since: Optional[date] = None,
+                 limit: Optional[int] = None):
+        super().__init__(manager)
         self.since = since          # backfill floor on reportDate
         self.limit = limit          # cap number of filings (backfill batching)
 
+    def applies(self) -> bool:
+        return bool(self.manager.get("cik"))
+
+    @property
+    def cik(self) -> str:
+        return str(self.manager["cik"]).zfill(10)
+
     # ---- discover -------------------------------------------------------
     def discover(self) -> list[FetchTarget]:
-        subs = sec_get(config.SEC_SUBMISSIONS_URL).json()
+        subs = sec_get(
+            f"https://data.sec.gov/submissions/CIK{self.cik}.json").json()
         targets: list[FetchTarget] = []
         for f in self._iter_filings(subs):
             if f["form"] not in FORMS_13F:
@@ -93,7 +103,7 @@ class Edgar13FCollector(BaseCollector):
 
     def _filing_dir(self, accession_no: str) -> str:
         acc_nodash = accession_no.replace("-", "")
-        return f"{config.SEC_ARCHIVES_BASE}/{config.CIK_INT}/{acc_nodash}/"
+        return f"{config.SEC_ARCHIVES_BASE}/{int(self.cik)}/{acc_nodash}/"
 
     # ---- fetch ----------------------------------------------------------
     def fetch(self, target: FetchTarget) -> Optional[RawDoc]:
@@ -171,13 +181,13 @@ class Edgar13FCollector(BaseCollector):
             accession_no=target.external_id,
             is_amendment=bool(meta.get("is_amendment")),
         )
-        n = repo.insert_holdings(conn, rows, raw_id)
-        diff.diff_us_holdings(conn, target.external_id)
+        n = repo.insert_holdings(conn, self.manager_id, rows, raw_id)
+        diff.diff_us_holdings(conn, self.manager_id, target.external_id)
         # derive an auxiliary AUM point (US long positions) for the time series
         aum = compute_total_aum(rows, report_date, filing_date)
         if aum is not None:
-            repo.insert_aum(conn, [aum], raw_id)
-            diff.diff_aum(conn, "13f_total", report_date)
+            repo.insert_aum(conn, self.manager_id, [aum], raw_id)
+            diff.diff_aum(conn, self.manager_id, "13f_total", report_date)
         return n
 
     def _persist_notice(self, conn, raw_id, raw_payload, target,
@@ -186,6 +196,7 @@ class Edgar13FCollector(BaseCollector):
         cover = parse_cover(raw_payload)
         inserted = repo.insert_notice(
             conn,
+            self.manager_id,
             as_of_date=report_date,
             filed_at=filing_date,
             accession_no=target.external_id,
@@ -197,6 +208,7 @@ class Edgar13FCollector(BaseCollector):
         if inserted:
             repo.insert_change(
                 conn,
+                self.manager_id,
                 entity_type="us_holding",
                 change_type="REPORTING_DELEGATED",
                 entity_key="13F-NT",
