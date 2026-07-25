@@ -64,6 +64,41 @@ def external_id_seen(conn, source: str, external_id: str) -> bool:
 
 # ---- holdings (13F) ------------------------------------------------------
 
+# A 13F-HR/A may restate the whole portfolio or only part of it, and the form
+# itself does not say which in the information table. Taking the latest filing
+# unconditionally lets a two-position amendment stand in for a hundred-position
+# portfolio. A filing holding less than this share of the quarter's fullest
+# position count is therefore not treated as a portfolio view at all — while a
+# genuine restatement, which lists comparably many positions, still wins on
+# recency.
+_COMPLETENESS_FLOOR = 0.5
+
+
+def best_filing_for_quarter(conn, as_of: date) -> Optional[dict]:
+    """The filing that best represents a quarter's portfolio.
+
+    Latest filed wins (amendment preferred on a tie), among filings complete
+    enough to be a portfolio — see ``_COMPLETENESS_FLOOR``. Returns None when
+    the quarter has no holdings.
+    """
+    return conn.execute(
+        """
+        WITH f AS (
+            SELECT accession_no, filed_at, is_amendment, count(*) AS positions
+              FROM holdings WHERE as_of_date = %s
+             GROUP BY accession_no, filed_at, is_amendment
+        )
+        SELECT accession_no, filed_at, is_amendment, positions,
+               (SELECT count(*) FROM f) AS filings
+          FROM f
+         WHERE positions >= (SELECT max(positions) FROM f) * %s
+         ORDER BY filed_at DESC, is_amendment DESC
+         LIMIT 1
+        """,
+        (as_of, _COMPLETENESS_FLOOR),
+    ).fetchone()
+
+
 def insert_holdings(conn, rows: Iterable[HoldingRow], raw_id: Optional[int]) -> int:
     n = 0
     for r in rows:

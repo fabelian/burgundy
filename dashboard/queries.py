@@ -5,6 +5,7 @@ from datetime import date
 from typing import Optional
 
 from db.conn import connect
+from pipeline import repo
 
 
 # ---- Overview ------------------------------------------------------------
@@ -64,25 +65,19 @@ def aum_table() -> list[dict]:
         rows = conn.execute(
             """
             SELECT a.as_of_date, a.source, a.aum, a.currency, a.fetched_at,
-                   r.external_id AS accession_no, r.url AS source_url,
-                   h.positions, h.is_amendment, h.filings
+                   r.external_id AS accession_no, r.url AS source_url
               FROM aum_history a
               LEFT JOIN raw_documents r ON r.id = a.raw_id
-              LEFT JOIN LATERAL (
-                  SELECT best.is_amendment,
-                         (SELECT count(*) FROM holdings x
-                           WHERE x.accession_no = best.accession_no) AS positions,
-                         (SELECT count(DISTINCT y.accession_no) FROM holdings y
-                           WHERE y.as_of_date = a.as_of_date) AS filings
-                    FROM holdings best
-                   WHERE a.source = '13f_total'
-                     AND best.as_of_date = a.as_of_date
-                   ORDER BY best.filed_at DESC, best.is_amendment DESC
-                   LIMIT 1
-              ) h ON true
              ORDER BY a.source, a.as_of_date
             """
         ).fetchall()
+        # Which filing each 13F quarter was summed from — the same selection
+        # the series itself uses, so the table explains the number it shows.
+        filings = {}
+        for r in rows:
+            if r["source"] == "13f_total" and r["as_of_date"] not in filings:
+                filings[r["as_of_date"]] = repo.best_filing_for_quarter(
+                    conn, r["as_of_date"])
 
     out: list[dict] = []
     prev: dict[str, float] = {}
@@ -90,8 +85,12 @@ def aum_table() -> list[dict]:
         current = float(r["aum"])
         previous = prev.get(r["source"])
         ratio = current / previous if previous else None
+        best = filings.get(r["as_of_date"]) if r["source"] == "13f_total" else None
         out.append({
             **r,
+            "positions": best["positions"] if best else None,
+            "is_amendment": best["is_amendment"] if best else None,
+            "filings": best["filings"] if best else None,
             "aum": current,
             "prev_aum": previous,
             "ratio": ratio,
@@ -126,13 +125,9 @@ def us_quarters() -> list[date]:
 
 
 def _latest_accession_for_quarter(conn, as_of: date) -> Optional[str]:
-    row = conn.execute(
-        """
-        SELECT accession_no FROM holdings WHERE as_of_date = %s
-         ORDER BY filed_at DESC, is_amendment DESC LIMIT 1
-        """,
-        (as_of,),
-    ).fetchone()
+    """The filing whose holdings represent the quarter — same rule as the
+    derived AUM series, so the two tabs never disagree about a quarter."""
+    row = repo.best_filing_for_quarter(conn, as_of)
     return row["accession_no"] if row else None
 
 
