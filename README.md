@@ -130,6 +130,7 @@ once immediately, point the collector service's **Config File** at one of these
 process exits), then switch back to `railway.collector.json`:
 
 - `railway.backfill.json` — `pipeline.backfill` (loads historical 13F filings, then heals each manager's `13f_total` AUM series so a backfilled manager is complete without waiting for the nightly run).
+- `railway.heal.json` — `pipeline.heal` (recompute the derived `13f_total` AUM rows from stored holdings, correcting any written under an older rule). Touches only the database, so a scaling fix reaches years of history in seconds instead of re-fetching every filing. Scope it with `HEAL_MANAGER=<slug>`.
 - `railway.reparse.json` — `pipeline.reparse` (rebuild snapshots/derived rows from stored raw docs without re-fetching; e.g. to backfill the `13f_total` AUM series after a parser change).
 
 Because the start command is fixed, the backfill takes its options from
