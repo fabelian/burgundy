@@ -53,6 +53,20 @@ python -m pipeline.reparse --manager burgundy
 
 The dashboard takes `?manager=<slug>`; the header picker switches between them.
 
+## Korean stakes are found backwards
+
+DART has no "what does this manager hold" endpoint. Stakes are found by scanning
+issuers that filed an ownership disclosure (`list.json`, 지분공시) and keeping the
+rows whose reporter name matches the manager's `dart_terms`.
+
+The daily collector scans the last few days, so a stake disclosed before tracking
+began is never seen — `pipeline.backfill_kr --since 2015` walks the same scan over
+a multi-year window instead. Only holdings of **5% or more** exist in DART at all;
+smaller positions carry no disclosure duty and are genuinely absent, not missing.
+
+A `list.json` failure — rejected key, quota exceeded — raises rather than
+returning an empty list, so a broken run cannot be mistaken for a quiet week.
+
 ## Layout
 
 ```
@@ -130,6 +144,7 @@ once immediately, point the collector service's **Config File** at one of these
 process exits), then switch back to `railway.collector.json`:
 
 - `railway.backfill.json` — `pipeline.backfill` (loads historical 13F filings, then heals each manager's `13f_total` AUM series so a backfilled manager is complete without waiting for the nightly run).
+- `railway.backfill_kr.json` — `pipeline.backfill_kr` (load historical Korean 5% disclosures). Scope with `KR_BACKFILL_SINCE` / `KR_BACKFILL_MANAGER` / `KR_BACKFILL_LIMIT`.
 - `railway.heal.json` — `pipeline.heal` (recompute the derived `13f_total` AUM rows from stored holdings, correcting any written under an older rule). Touches only the database, so a scaling fix reaches years of history in seconds instead of re-fetching every filing. Scope it with `HEAL_MANAGER=<slug>`.
 - `railway.reparse.json` — `pipeline.reparse` (rebuild snapshots/derived rows from stored raw docs without re-fetching; e.g. to backfill the `13f_total` AUM series after a parser change).
 
