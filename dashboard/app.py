@@ -17,6 +17,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup
 
 import config
 from dashboard import queries
@@ -35,7 +36,22 @@ def _json_default(o):
     return str(o)
 
 
-templates.env.filters["tojson_safe"] = lambda v: json.dumps(v, default=_json_default)
+def _tojson_safe(value) -> Markup:
+    """JSON for embedding inside a <script> block.
+
+    Must be marked safe: Jinja2 autoescapes plain strings, and HTML entities are
+    not decoded inside <script>, so an escaped quote reaches the JS parser
+    verbatim and kills the whole block. Characters that could break out of the
+    tag are emitted as \\u escapes instead, which stay valid JSON.
+    """
+    payload = json.dumps(value, default=_json_default)
+    for char, escape in (("<", "\\u003c"), (">", "\\u003e"), ("&", "\\u0026"),
+                         ("\u2028", "\\u2028"), ("\u2029", "\\u2029")):
+        payload = payload.replace(char, escape)
+    return Markup(payload)
+
+
+templates.env.filters["tojson_safe"] = _tojson_safe
 
 
 def require_auth(credentials: Optional[HTTPBasicCredentials] = Depends(security)):
