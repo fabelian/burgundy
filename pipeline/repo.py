@@ -86,6 +86,35 @@ def insert_holdings(conn, rows: Iterable[HoldingRow], raw_id: Optional[int]) -> 
     return n
 
 
+# ---- filing_notices (13F-NT) --------------------------------------------
+
+def insert_notice(
+    conn,
+    *,
+    as_of_date,
+    filed_at,
+    accession_no: str,
+    form: str,
+    report_type: Optional[str],
+    other_managers: Optional[str],
+    raw_id: Optional[int],
+) -> bool:
+    """Insert a 13F-NT notice record. Idempotent on accession_no."""
+    res = conn.execute(
+        """
+        INSERT INTO filing_notices
+          (as_of_date, filed_at, accession_no, form, report_type,
+           other_managers, raw_id)
+        VALUES (%s,%s,%s,%s,%s,%s,%s)
+        ON CONFLICT (accession_no) DO NOTHING
+        RETURNING id
+        """,
+        (as_of_date, filed_at, accession_no, form, report_type,
+         other_managers, raw_id),
+    ).fetchone()
+    return res is not None
+
+
 # ---- kr_holdings (DART) --------------------------------------------------
 
 def insert_kr_holdings(conn, rows: Iterable[KrHoldingRow], raw_id: Optional[int]) -> int:

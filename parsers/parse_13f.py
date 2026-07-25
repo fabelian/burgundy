@@ -107,6 +107,42 @@ def parse_13f(
     return rows
 
 
+def parse_cover(payload: str | bytes) -> dict:
+    """Extract report type and 'other managers' from a 13F primary_doc.xml.
+
+    Used for 13F-NT (Notice) filings, whose cover page names the manager(s)
+    reporting the holdings on this filer's behalf (e.g. an acquirer). Returns
+    ``{"report_type": str|None, "other_managers": str|None}`` — best effort,
+    tolerant of namespace variation.
+    """
+    if isinstance(payload, str):
+        data = payload.encode("utf-8")
+    else:
+        data = payload
+    parser = etree.XMLParser(recover=True, resolve_entities=False, no_network=True)
+    root = etree.fromstring(data, parser=parser)
+    if root is None:
+        return {"report_type": None, "other_managers": None}
+
+    report_type = None
+    names: list[str] = []
+    for el in root.iter():
+        tag = _localname(el.tag)
+        if tag == "reportType" and el.text:
+            report_type = el.text.strip()
+        # a <name> is an "other manager" name if any ancestor tag mentions it
+        if tag == "name" and el.text and el.text.strip():
+            if any("othermanager" in _localname(a.tag).lower()
+                   for a in el.iterancestors()):
+                names.append(el.text.strip())
+
+    # de-dupe while preserving order
+    seen: set[str] = set()
+    uniq = [n for n in names if not (n in seen or seen.add(n))]
+    other = "; ".join(uniq) if uniq else None
+    return {"report_type": report_type, "other_managers": other}
+
+
 def compute_total_aum(rows: list[HoldingRow], as_of: date) -> AumRow | None:
     """Derive an approximate AUM figure from a 13F filing (US long positions).
 
