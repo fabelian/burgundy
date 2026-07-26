@@ -137,7 +137,13 @@ def tab_us(request: Request, quarter: Optional[str] = Query(None),
 def tab_korea(request: Request, manager: Optional[str] = Query(None),
               _=Depends(require_auth)):
     m = _resolve(manager)
+    # Fund holdings are cross-manager on purpose — the tab exists to compare the
+    # five. The DART section below them stays scoped to the selected manager,
+    # since a 5% disclosure is that manager's own filing.
     return templates.TemplateResponse(request, "korea.html", {
+        "coverage": queries.kr_fund_coverage(),
+        "evidence": queries.kr_evidence(),
+        "weight_series": queries.kr_weight_series(),
         "kr_series": queries.kr_series(m["id"]),
         "history": queries.kr_history(m["id"]),
         "selected": m["slug"],

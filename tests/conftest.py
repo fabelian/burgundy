@@ -17,8 +17,9 @@ def db():
     try:
         from db.conn import connect
         with connect() as conn:
-            conn.execute("TRUNCATE holdings, kr_holdings, aum_history, personnel, "
-                         "changes, raw_documents, filing_notices, collector_runs "
+            conn.execute("TRUNCATE holdings, kr_holdings, fund_holdings, proxy_votes, funds, "
+                         "aum_history, personnel, changes, raw_documents, "
+                         "filing_notices, collector_runs "
                          "RESTART IDENTITY CASCADE")
     except Exception as exc:  # pragma: no cover
         pytest.skip(f"database not available: {exc}")

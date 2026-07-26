@@ -240,6 +240,136 @@ def us_holdings(manager_id: int, as_of: Optional[date] = None) -> dict:
 
 
 # ---- Korea ---------------------------------------------------------------
+#
+# The Korea tab is the one view that is deliberately *not* scoped to the
+# selected manager. Its question is "which of the five holds Samsung, and how
+# much", which is a comparison — showing one manager at a time would mean
+# clicking through five tabs to answer it.
+
+def kr_fund_coverage() -> list[dict]:
+    """Every tracked fund and the freshest document read from it.
+
+    Rendered above the holdings so an empty table can be read correctly: a fund
+    with no document collected yet is unknown, not empty, and the two must never
+    look the same to someone about to call a client.
+    """
+    with connect() as conn:
+        return conn.execute(
+            """
+            SELECT m.name AS manager, m.slug AS manager_slug,
+                   f.name AS fund, f.mandate, f.cadence,
+                   h.latest_as_of, h.positions, h.disclosure_scope
+              FROM funds f
+              JOIN managers m ON m.id = f.manager_id
+              LEFT JOIN LATERAL (
+                    SELECT fh.as_of_date AS latest_as_of,
+                           count(*) AS positions,
+                           max(fh.disclosure_scope) AS disclosure_scope
+                      FROM fund_holdings fh
+                     WHERE fh.fund_id = f.id
+                     GROUP BY fh.as_of_date
+                     ORDER BY fh.as_of_date DESC
+                     LIMIT 1
+              ) h ON TRUE
+             WHERE f.is_active AND m.is_active
+             ORDER BY m.sort_order, f.sort_order, f.name
+            """
+        ).fetchall()
+
+
+def kr_evidence() -> list[dict]:
+    """Korean positions across the five, with what each source can prove.
+
+    A fact sheet prints only the top 10–25 positions, so it cannot show a
+    holding below its smallest printed weight. A voting record has no such
+    ceiling but no weight either. Joined, they separate three states that look
+    identical in either source alone:
+
+    ``sized``   both agree — held, and measured.
+    ``unsized`` a vote but no fact-sheet line — held, and *below the fact
+                sheet's floor*. This is the band neither source reaches alone,
+                and the reason this query exists.
+    ``recent``  a fact-sheet line with no vote — normal for a position opened
+                since the voting record's period, which lags about 14 months.
+
+    Keyed on ``(fund_id, security_key)``. The fund is what makes the two sides
+    comparable — a voting record is a fund-level obligation, so a fund's sheet
+    and that same fund's record describe one portfolio. Keying on the manager
+    instead would fold two of its funds holding Samsung into a single row and
+    lose one of the positions.
+
+    ``security_key`` is what lets a vote for "Samsung Electronics Co., Ltd."
+    meet a holding printed "Samsung Electronics Co Ltd" without either document
+    being rewritten.
+    """
+    with connect() as conn:
+        return conn.execute(
+            """
+            WITH held AS (
+                SELECT DISTINCT ON (fh.fund_id, fh.security_key)
+                       fh.fund_id, fh.security_key, fh.security_name,
+                       fh.weight, fh.as_of_date, fh.disclosure_scope
+                  FROM fund_holdings fh
+                 WHERE fh.is_korean
+                 ORDER BY fh.fund_id, fh.security_key, fh.as_of_date DESC
+            ),
+            voted AS (
+                SELECT DISTINCT ON (pv.fund_id, pv.security_key)
+                       pv.fund_id, pv.security_key, pv.issuer_name,
+                       pv.meeting_date, pv.period_ended
+                  FROM proxy_votes pv
+                 WHERE pv.is_korean
+                 ORDER BY pv.fund_id, pv.security_key, pv.meeting_date DESC
+            ),
+            merged AS (
+                SELECT COALESCE(h.fund_id, v.fund_id) AS fund_id,
+                       COALESCE(h.security_name, v.issuer_name) AS security_name,
+                       h.weight, h.as_of_date, h.disclosure_scope,
+                       v.meeting_date, v.period_ended,
+                       CASE WHEN h.fund_id IS NOT NULL
+                             AND v.fund_id IS NOT NULL THEN 'sized'
+                            WHEN h.fund_id IS NULL      THEN 'unsized'
+                            ELSE 'recent' END AS evidence
+                  FROM held h
+                  FULL OUTER JOIN voted v
+                       ON v.fund_id = h.fund_id
+                      AND v.security_key = h.security_key
+            )
+            SELECT m.name AS manager, m.slug AS manager_slug, f.name AS fund,
+                   g.security_name, g.weight, g.as_of_date, g.disclosure_scope,
+                   g.meeting_date, g.period_ended, g.evidence
+              FROM merged g
+              JOIN funds f    ON f.id = g.fund_id
+              JOIN managers m ON m.id = f.manager_id
+             ORDER BY g.weight DESC NULLS LAST, m.sort_order, f.name,
+                      g.security_name
+            """
+        ).fetchall()
+
+
+def kr_weight_series() -> dict[str, list[dict]]:
+    """Korean weight over time, one line per manager+fund+security."""
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT m.name AS manager, f.name AS fund, fh.security_name,
+                   fh.as_of_date, fh.weight
+              FROM fund_holdings fh
+              JOIN funds f    ON f.id = fh.fund_id
+              JOIN managers m ON m.id = fh.manager_id
+             WHERE fh.is_korean AND fh.weight IS NOT NULL
+             ORDER BY m.sort_order, f.name, fh.security_name, fh.as_of_date
+            """
+        ).fetchall()
+    series: dict[str, list[dict]] = {}
+    for r in rows:
+        label = f"{r['manager']} · {r['security_name']}"
+        series.setdefault(label, []).append({
+            "x": r["as_of_date"].isoformat(),
+            "y": float(r["weight"]),
+        })
+    return series
+
 
 def kr_series(manager_id: int) -> dict[str, list[dict]]:
     """Ownership-pct trend per corp for the chart."""

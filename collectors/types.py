@@ -56,6 +56,76 @@ class KrHoldingRow:
 
 
 @dataclass
+class FundHoldingRow:
+    """One position printed by a fund's own disclosure document.
+
+    ``security_key`` is derived from the printed name (parsers.securities) —
+    fact sheets carry no CUSIP — and is what makes a re-fetch idempotent.
+
+    ``disclosure_scope`` records whether the document listed the whole portfolio
+    or only its largest positions. A row from a ``top_n`` document says nothing
+    about what the fund does *not* hold.
+
+    ``is_korean`` is classified here rather than by each parser, so no future
+    fact-sheet format can put a Samsung position in the database that the Korea
+    tab then fails to show. Pass it explicitly only to override the default
+    classification.
+    """
+    as_of_date: date
+    security_key: str
+    security_name: str
+    ticker: Optional[str] = None
+    isin: Optional[str] = None
+    country: Optional[str] = None
+    weight: Optional[float] = None
+    market_value: Optional[float] = None
+    currency: Optional[str] = None
+    position_rank: Optional[int] = None
+    disclosure_scope: str = "top_n"
+    positions_listed: Optional[int] = None
+    published_at: Optional[date] = None
+    is_korean: Optional[bool] = None
+
+    def __post_init__(self) -> None:
+        if self.is_korean is None:
+            from parsers.securities import is_korean
+
+            self.is_korean = is_korean(
+                country=self.country, name=self.security_name,
+                ticker=self.ticker, isin=self.isin,
+            )
+
+
+@dataclass
+class ProxyVoteRow:
+    """One meeting a fund voted at — evidence that it held the issuer.
+
+    Carries no weight, and that absence is the information: a voting record has
+    no top-N ceiling, so it reaches positions a fact sheet cannot show, but it
+    never says how large they are.
+
+    ``is_korean`` is classified here for the same reason it is on
+    ``FundHoldingRow`` — the Korea tab must not depend on a parser remembering.
+    """
+    period_ended: date
+    meeting_date: date
+    security_key: str
+    issuer_name: str
+    ticker: Optional[str] = None
+    country: Optional[str] = None
+    ballots: Optional[int] = None
+    is_korean: Optional[bool] = None
+
+    def __post_init__(self) -> None:
+        if self.is_korean is None:
+            from parsers.securities import is_korean
+
+            self.is_korean = is_korean(
+                country=self.country, name=self.issuer_name, ticker=self.ticker,
+            )
+
+
+@dataclass
 class AumRow:
     as_of_date: date
     aum: float

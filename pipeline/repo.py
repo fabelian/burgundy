@@ -12,9 +12,11 @@ from typing import Iterable, Optional
 
 from collectors.types import (
     AumRow,
+    FundHoldingRow,
     HoldingRow,
     KrHoldingRow,
     PersonnelRow,
+    ProxyVoteRow,
     RawDoc,
 )
 
@@ -179,6 +181,91 @@ def insert_kr_holdings(conn, manager_id: int, rows: Iterable[KrHoldingRow],
                 r.as_of_date, r.filed_at, r.rcept_no, r.corp_code, r.corp_name,
                 r.ticker, r.shares, r.ownership_pct, r.report_type, raw_id,
             ),
+        ).fetchone()
+        if res:
+            n += 1
+    return n
+
+
+# ---- fund_holdings (fact sheets) -----------------------------------------
+
+def insert_fund_holdings(conn, manager_id: int, fund_id: int,
+                         rows: Iterable[FundHoldingRow],
+                         raw_id: Optional[int]) -> int:
+    """Insert a fund document's positions.
+
+    Idempotent on (fund_id, as_of_date, security_key). A re-fetch of the same
+    document is therefore a no-op, but a *corrected* document — a manager
+    re-issuing a fact sheet with a fixed weight — must not leave the old number
+    standing, so a conflicting row is updated rather than ignored. That differs
+    from the 13F path, where an amendment arrives under its own accession number
+    and the two versions are both worth keeping.
+    """
+    n = 0
+    for r in rows:
+        res = conn.execute(
+            """
+            INSERT INTO fund_holdings
+              (manager_id, fund_id, as_of_date, published_at, security_key,
+               security_name, ticker, isin, country, is_korean, weight,
+               market_value, currency, position_rank, disclosure_scope,
+               positions_listed, raw_id)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ON CONFLICT (fund_id, as_of_date, security_key) DO UPDATE SET
+                security_name    = EXCLUDED.security_name,
+                ticker           = COALESCE(EXCLUDED.ticker, fund_holdings.ticker),
+                isin             = COALESCE(EXCLUDED.isin, fund_holdings.isin),
+                country          = COALESCE(EXCLUDED.country, fund_holdings.country),
+                is_korean        = EXCLUDED.is_korean,
+                weight           = EXCLUDED.weight,
+                market_value     = EXCLUDED.market_value,
+                currency         = COALESCE(EXCLUDED.currency, fund_holdings.currency),
+                position_rank    = EXCLUDED.position_rank,
+                disclosure_scope = EXCLUDED.disclosure_scope,
+                positions_listed = EXCLUDED.positions_listed,
+                raw_id           = EXCLUDED.raw_id
+            RETURNING (xmax = 0) AS inserted
+            """,
+            (
+                manager_id, fund_id, r.as_of_date, r.published_at, r.security_key,
+                r.security_name, r.ticker, r.isin, r.country, bool(r.is_korean),
+                r.weight, r.market_value, r.currency, r.position_rank,
+                r.disclosure_scope, r.positions_listed, raw_id,
+            ),
+        ).fetchone()
+        # xmax = 0 marks a genuine insert; an update leaves it set. Counting
+        # updates as new rows would report a re-issued fact sheet as fresh
+        # coverage.
+        if res and res["inserted"]:
+            n += 1
+    return n
+
+
+# ---- proxy_votes (NI 81-106 voting records) ------------------------------
+
+def insert_proxy_votes(conn, manager_id: int, fund_id: int,
+                       rows: Iterable[ProxyVoteRow],
+                       raw_id: Optional[int]) -> int:
+    """Insert a voting record's meetings.
+
+    Plain DO NOTHING on conflict, unlike ``insert_fund_holdings``: a meeting on
+    a given date is a historical fact that does not get restated, so a re-fetch
+    has nothing to correct.
+    """
+    n = 0
+    for r in rows:
+        res = conn.execute(
+            """
+            INSERT INTO proxy_votes
+              (manager_id, fund_id, period_ended, meeting_date, security_key,
+               issuer_name, ticker, country, is_korean, ballots, raw_id)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ON CONFLICT (fund_id, meeting_date, security_key) DO NOTHING
+            RETURNING id
+            """,
+            (manager_id, fund_id, r.period_ended, r.meeting_date, r.security_key,
+             r.issuer_name, r.ticker, r.country, bool(r.is_korean), r.ballots,
+             raw_id),
         ).fetchone()
         if res:
             n += 1

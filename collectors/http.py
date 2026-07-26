@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import time
+from typing import Optional
 
 import httpx
 
@@ -82,3 +83,20 @@ def get_text(url: str, *, timeout: float = 30.0) -> str:
                      follow_redirects=True)
     resp.raise_for_status()
     return resp.text
+
+
+def get_binary(url: str, *, timeout: float = 60.0) -> Optional[bytes]:
+    """GET a binary document (a fund PDF), or None if it is not published.
+
+    A fund document is addressed by period, and a period that has not been
+    published yet answers 404 — an ordinary, expected answer rather than a
+    failure, so it returns None and lets the caller move on. Every other error
+    status still raises: a 403 blocking the whole site must not be mistaken for
+    "this manager published nothing".
+    """
+    resp = httpx.get(url, headers=BROWSER_HEADERS, timeout=timeout,
+                     follow_redirects=True)
+    if resp.status_code == 404:
+        return None
+    resp.raise_for_status()
+    return resp.content

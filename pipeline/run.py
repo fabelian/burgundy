@@ -17,16 +17,20 @@ from datetime import datetime, timedelta, timezone
 import config
 from collectors.dart_5pct import Dart5pctCollector
 from collectors.edgar_13f import Edgar13FCollector
+from collectors.factsheet import FactsheetCollector
 from collectors.form_adv import FormAdvCollector
 from collectors.website import WebsiteAumCollector, WebsiteTeamCollector
 from db.conn import connect
-from pipeline import managers, notify, repo
+from pipeline import funds, managers, notify, repo
 from pipeline.reparse import heal_13f_aum
 
 # (collector class, weekly?) — weekly ones honour the skip window.
+# Fact sheets are published quarterly or monthly, so a daily fetch would ask a
+# manager's site for the same unchanged PDF six extra times a week.
 COLLECTORS = [
     (Edgar13FCollector, False),
     (Dart5pctCollector, False),
+    (FactsheetCollector, True),
     (FormAdvCollector, True),
     (WebsiteAumCollector, True),
     (WebsiteTeamCollector, True),
@@ -86,8 +90,10 @@ def main() -> None:
 
     with connect() as conn:
         written = managers.sync_from_config(conn)
+        fund_rows = funds.sync_from_config(conn)
         tracked = managers.active(conn)
-    print(f"[run] {len(tracked)} manager(s) tracked ({written} synced from config)")
+    print(f"[run] {len(tracked)} manager(s) tracked ({written} synced from config); "
+          f"{fund_rows} fund(s) synced")
 
     for manager in tracked:
         for cls, weekly in COLLECTORS:
