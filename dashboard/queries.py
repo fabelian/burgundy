@@ -277,32 +277,72 @@ def kr_fund_coverage() -> list[dict]:
         ).fetchall()
 
 
-def kr_fund_holdings() -> list[dict]:
-    """Korean positions across every tracked manager, latest period per fund.
+def kr_evidence() -> list[dict]:
+    """Korean positions across the five, with what each source can prove.
 
-    Only the most recent as-of date of each fund is shown: a fact sheet is a
-    point-in-time statement, and stacking four quarters of the same position
-    would read as four holdings.
+    A fact sheet prints only the top 10–25 positions, so it cannot show a
+    holding below its smallest printed weight. A voting record has no such
+    ceiling but no weight either. Joined, they separate three states that look
+    identical in either source alone:
+
+    ``sized``   both agree — held, and measured.
+    ``unsized`` a vote but no fact-sheet line — held, and *below the fact
+                sheet's floor*. This is the band neither source reaches alone,
+                and the reason this query exists.
+    ``recent``  a fact-sheet line with no vote — normal for a position opened
+                since the voting record's period, which lags about 14 months.
+
+    Keyed on ``(fund_id, security_key)``. The fund is what makes the two sides
+    comparable — a voting record is a fund-level obligation, so a fund's sheet
+    and that same fund's record describe one portfolio. Keying on the manager
+    instead would fold two of its funds holding Samsung into a single row and
+    lose one of the positions.
+
+    ``security_key`` is what lets a vote for "Samsung Electronics Co., Ltd."
+    meet a holding printed "Samsung Electronics Co Ltd" without either document
+    being rewritten.
     """
     with connect() as conn:
         return conn.execute(
             """
-            WITH latest AS (
-                SELECT fund_id, max(as_of_date) AS as_of_date
-                  FROM fund_holdings GROUP BY fund_id
+            WITH held AS (
+                SELECT DISTINCT ON (fh.fund_id, fh.security_key)
+                       fh.fund_id, fh.security_key, fh.security_name,
+                       fh.weight, fh.as_of_date, fh.disclosure_scope
+                  FROM fund_holdings fh
+                 WHERE fh.is_korean
+                 ORDER BY fh.fund_id, fh.security_key, fh.as_of_date DESC
+            ),
+            voted AS (
+                SELECT DISTINCT ON (pv.fund_id, pv.security_key)
+                       pv.fund_id, pv.security_key, pv.issuer_name,
+                       pv.meeting_date, pv.period_ended
+                  FROM proxy_votes pv
+                 WHERE pv.is_korean
+                 ORDER BY pv.fund_id, pv.security_key, pv.meeting_date DESC
+            ),
+            merged AS (
+                SELECT COALESCE(h.fund_id, v.fund_id) AS fund_id,
+                       COALESCE(h.security_name, v.issuer_name) AS security_name,
+                       h.weight, h.as_of_date, h.disclosure_scope,
+                       v.meeting_date, v.period_ended,
+                       CASE WHEN h.fund_id IS NOT NULL
+                             AND v.fund_id IS NOT NULL THEN 'sized'
+                            WHEN h.fund_id IS NULL      THEN 'unsized'
+                            ELSE 'recent' END AS evidence
+                  FROM held h
+                  FULL OUTER JOIN voted v
+                       ON v.fund_id = h.fund_id
+                      AND v.security_key = h.security_key
             )
-            SELECT m.name AS manager, m.slug AS manager_slug,
-                   f.name AS fund, f.mandate,
-                   fh.as_of_date, fh.security_name, fh.ticker, fh.country,
-                   fh.weight, fh.position_rank, fh.disclosure_scope,
-                   fh.positions_listed
-              FROM fund_holdings fh
-              JOIN latest l  ON l.fund_id = fh.fund_id
-                            AND l.as_of_date = fh.as_of_date
-              JOIN funds f   ON f.id = fh.fund_id
-              JOIN managers m ON m.id = fh.manager_id
-             WHERE fh.is_korean
-             ORDER BY fh.weight DESC NULLS LAST, m.sort_order, f.name
+            SELECT m.name AS manager, m.slug AS manager_slug, f.name AS fund,
+                   g.security_name, g.weight, g.as_of_date, g.disclosure_scope,
+                   g.meeting_date, g.period_ended, g.evidence
+              FROM merged g
+              JOIN funds f    ON f.id = g.fund_id
+              JOIN managers m ON m.id = f.manager_id
+             ORDER BY g.weight DESC NULLS LAST, m.sort_order, f.name,
+                      g.security_name
             """
         ).fetchall()
 

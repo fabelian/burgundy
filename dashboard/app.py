@@ -142,7 +142,7 @@ def tab_korea(request: Request, manager: Optional[str] = Query(None),
     # since a 5% disclosure is that manager's own filing.
     return templates.TemplateResponse(request, "korea.html", {
         "coverage": queries.kr_fund_coverage(),
-        "fund_holdings": queries.kr_fund_holdings(),
+        "evidence": queries.kr_evidence(),
         "weight_series": queries.kr_weight_series(),
         "kr_series": queries.kr_series(m["id"]),
         "history": queries.kr_history(m["id"]),

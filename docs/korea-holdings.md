@@ -282,6 +282,30 @@ the top-N warning need no changes — the warning simply stops firing.
    **Samsung Electronics 2.8%** — 5.8% Korean, with no foreign holding wrongly claimed.
    Note the sheet prints `SK hynix Inc`, not `SK Hynix`, which the normalised key handles.
 
+5. **`proxy_votes`** (migration `005`) and the **evidence view** behind the Korea tab.
+   A voting record has no top-N ceiling and no weight; a fact sheet is the reverse.
+   Joined, they separate three states that look identical in either source alone:
+
+   | | Fact sheet | Voting record | Reading |
+   |---|---|---|---|
+   | `sized` | yes | yes | held, and measured |
+   | `unsized` | — | yes | **held, below the fact sheet's floor** |
+   | `recent` | yes | — | held; the record lags ~14 months |
+
+   `unsized` is the band this repo was otherwise blind to, and the reason the source is
+   worth building. `recent` is deliberately *not* flagged as suspicious: a position opened
+   since the record's period is legitimately absent from it.
+
+   The join is keyed on `(fund_id, security_key)`. The fund matters because NI 81-106
+   makes the record a fund-level obligation, so a fund's sheet and that same fund's record
+   describe one portfolio — keying on the manager would fold two of its funds holding
+   Samsung into a single row and lose a position. `security_key` is what lets a vote for
+   `SK Hynix Inc.` meet a holding printed `SK hynix Inc` without either being rewritten.
+
+   Votes are stored **one row per meeting, not per ballot item**. The evidence is "this
+   fund held this issuer on this date"; twenty resolutions would say that twenty times,
+   and dedup would then hinge on matching free-text resolution titles across documents.
+
 ## SEDAR+ — a second document source, but not an automatable one
 
 The attraction is real: **MRFP** (Management Report of Fund Performance, NI 81-106)
@@ -323,9 +347,16 @@ other four will differ, and each will need its own calibration against a real do
 `parse_factsheet_text` is the seam to extend, and the anti-silence rules mean an
 uncalibrated layout fails loudly instead of reporting an empty portfolio.
 
-**Proxy voting records are the highest-value unbuilt source** — the only free one with no
-top-N ceiling, and the only way to see a Korean position under ~$116M. See the
-reclassification above.
+**No voting record has been collected yet.** The table, the classification and the tab are
+built and tested; what is missing is a collector, and it is gated on the same two things
+as everything else here — a **document URL that has been seen** and a **layout observed
+against a real file**. Neither exists yet for any of the five, and both were guessed at
+exactly zero times in this repo, which is why the DART mistake has not repeated.
+
+Under NI 81-106 the record is posted on the fund's own website (not filed to SEDAR+), so
+the URLs sit alongside the fact sheets already being hunted — collect both in one pass.
+Once a document is in hand the shape is known from the regulation rather than guesswork:
+issuer, meeting date, ballot item, and how the fund voted. Only the *layout* needs a file.
 
 **The sandbox has no outbound network at all** — `example.com`, `sec.gov`, `mawer.com`
 and the Azure CDN all fail identically (proxy `403` at CONNECT, i.e. policy denial rather

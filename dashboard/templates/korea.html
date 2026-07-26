@@ -1,5 +1,6 @@
 {% set collected = coverage | selectattr('latest_as_of') | list %}
-{% set top_n_only = fund_holdings | selectattr('disclosure_scope', 'equalto', 'top_n') | list %}
+{% set top_n_only = evidence | selectattr('disclosure_scope', 'equalto', 'top_n') | list %}
+{% set unsized = evidence | selectattr('evidence', 'equalto', 'unsized') | list %}
 
 <div class="notice">
   🇰🇷 한국 보유 종목은 <strong>운용사 자체 펀드 공시(팩트시트)</strong>에서 수집합니다.
@@ -14,31 +15,40 @@
 
 <div class="card">
   <h2>한국 보유 종목 <span class="muted">— 5개 운용사 전체</span></h2>
-  {% if fund_holdings %}
+  {% if evidence %}
     <div class="table-wrap">
     <table>
       <thead>
         <tr>
-          <th>운용사</th><th>펀드</th><th>맨데이트</th>
-          <th>종목</th><th>티커</th>
-          <th class="num">비중</th><th class="num">순위</th>
-          <th>기준일</th><th>공시 범위</th>
+          <th>운용사</th><th>펀드</th><th>종목</th>
+          <th class="num">비중</th><th>기준일</th><th>공시 범위</th>
+          <th>의결권 기록</th><th>근거</th>
         </tr>
       </thead>
       <tbody>
-        {% for r in fund_holdings %}
+        {% for r in evidence %}
         <tr>
           <td>{{ r.manager }}</td>
           <td>{{ r.fund }}</td>
-          <td class="muted">{{ r.mandate }}</td>
           <td><strong>{{ r.security_name }}</strong></td>
-          <td class="muted">{{ r.ticker or '' }}</td>
-          <td class="num">{% if r.weight is not none %}{{ '%.2f'|format(r.weight) }}%{% else %}<span class="muted">—</span>{% endif %}</td>
-          <td class="num muted">{{ r.position_rank or '' }}</td>
-          <td class="muted">{{ r.as_of_date }}</td>
+          <td class="num">
+            {%- if r.weight is not none %}{{ '%.2f'|format(r.weight) }}%
+            {%- else %}<span class="muted">규모 미상</span>{% endif -%}
+          </td>
+          <td class="muted">{{ r.as_of_date or '' }}</td>
           <td class="muted">
             {%- if r.disclosure_scope == 'full' -%}전체 포트폴리오
-            {%- else -%}상위 {{ r.positions_listed or 'N' }}종목만
+            {%- elif r.disclosure_scope -%}상위 N종목만
+            {%- else -%}—{%- endif -%}
+          </td>
+          <td class="muted">{{ r.meeting_date or '' }}</td>
+          <td>
+            {%- if r.evidence == 'sized' -%}
+              <span class="badge">보유 확인 + 규모</span>
+            {%- elif r.evidence == 'unsized' -%}
+              <span class="badge">보유 확인 · 팩트시트 하한 미만</span>
+            {%- else -%}
+              <span class="badge">팩트시트만</span>
             {%- endif -%}
           </td>
         </tr>
@@ -46,13 +56,25 @@
       </tbody>
     </table>
     </div>
+    {% if unsized %}
+    <p class="muted" style="margin-top:10px;">
+      🔍 <strong>규모 미상</strong> 행은 의결권 행사 기록에만 있고 팩트시트에는 없습니다.
+      즉 <em>보유는 확인됐으나 팩트시트 인쇄 하한보다 작은</em> 포지션입니다 —
+      두 소스를 겹쳐야만 보이는 구간이며, 팩트시트만으로는 존재 자체를 알 수 없습니다.
+    </p>
+    {% endif %}
     {% if top_n_only %}
     <p class="muted" style="margin-top:10px;">
-      ⚠️ 위 행 중 일부는 <strong>상위 N종목만 인쇄된 팩트시트</strong>에서 나왔습니다.
+      ⚠️ 비중은 <strong>상위 N종목만 인쇄된 팩트시트</strong>에서 나왔습니다.
       여기에 나타나지 않는 운용사가 <em>보유하지 않는다는 뜻은 아닙니다</em> —
       인쇄된 목록 밖에 있을 수 있습니다. 영업 접근 시 "미보유"로 단정하지 마십시오.
     </p>
     {% endif %}
+    <p class="muted" style="margin-top:10px;">
+      의결권 기록(NI 81-106)은 <strong>상위 N 제한이 없어</strong> 작은 포지션도 잡히지만
+      규모를 알려주지 않고 약 14개월 지연됩니다. 팩트시트는 그 반대입니다.
+      "팩트시트만"은 의결권 기록 기간 이후 신규 편입된 포지션에서 정상적으로 나타납니다.
+    </p>
   {% elif collected %}
     <p class="muted">
       팩트시트는 수집됐지만 한국 종목이 확인되지 않았습니다.

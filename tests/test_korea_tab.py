@@ -41,7 +41,7 @@ def _row(name, weight, as_of=date(2024, 6, 30), scope="top_n", listed=10,
 def _render(**ctx):
     from dashboard.app import templates
 
-    base = {"coverage": [], "fund_holdings": [], "weight_series": {},
+    base = {"coverage": [], "evidence": [], "weight_series": {},
             "kr_series": {}, "history": [], "selected": "burgundy"}
     return templates.get_template("korea.html").render({**base, **ctx})
 
@@ -59,7 +59,7 @@ def test_korean_holdings_span_every_manager(db, manager, other_manager):
                               [_row("SK Hynix Inc", 0.9)], None)
     db.commit()  # queries.* open their own connection
 
-    rows = queries.kr_fund_holdings()
+    rows = queries.kr_evidence()
 
     assert {r["security_name"] for r in rows} == {"Samsung Electronics Co Ltd",
                                                  "SK Hynix Inc"}
@@ -75,7 +75,7 @@ def test_non_korean_positions_are_excluded(db, manager):
     ], None)
     db.commit()
 
-    assert [r["security_name"] for r in queries.kr_fund_holdings()] == [
+    assert [r["security_name"] for r in queries.kr_evidence()] == [
         "Samsung Electronics Co Ltd"]
 
 
@@ -89,7 +89,7 @@ def test_only_the_latest_period_of_each_fund_is_shown(db, manager):
         _row("Samsung Electronics Co Ltd", 1.7, as_of=date(2024, 6, 30))], None)
     db.commit()
 
-    rows = queries.kr_fund_holdings()
+    rows = queries.kr_evidence()
     assert len(rows) == 1
     assert rows[0]["as_of_date"] == date(2024, 6, 30)
     assert float(rows[0]["weight"]) == 1.7
@@ -105,7 +105,7 @@ def test_holdings_are_ranked_by_weight_for_the_sales_question(db, manager,
                               [_row("Samsung Electronics Co Ltd", 2.4)], None)
     db.commit()
 
-    assert [float(r["weight"]) for r in queries.kr_fund_holdings()] == [2.4, 0.9]
+    assert [float(r["weight"]) for r in queries.kr_evidence()] == [2.4, 0.9]
 
 
 def test_the_weight_trend_keeps_every_period(db, manager):
@@ -151,31 +151,32 @@ def test_coverage_reports_the_freshest_document_per_fund(db, manager):
 def _holding(**kw):
     base = {"manager": "Mawer Investment Management", "manager_slug": "mawer",
             "fund": "Mawer International Equity Fund",
-            "mandate": "international", "as_of_date": date(2024, 6, 30),
-            "security_name": "Samsung Electronics Co Ltd", "ticker": "005930",
-            "country": "South Korea", "weight": 1.7, "position_rank": 3,
-            "disclosure_scope": "top_n", "positions_listed": 10}
+            "as_of_date": date(2024, 6, 30),
+            "security_name": "Samsung Electronics Co Ltd", "weight": 1.7,
+            "disclosure_scope": "top_n", "meeting_date": None,
+            "period_ended": None, "evidence": "recent"}
     return {**base, **kw}
 
 
 def test_a_holding_renders_with_its_manager_and_weight():
-    html = _render(fund_holdings=[_holding()])
+    html = _render(evidence=[_holding()])
     assert "Mawer Investment Management" in html
     assert "Samsung Electronics Co Ltd" in html
     assert "1.70%" in html
 
 
-def test_a_top_ten_sheet_warns_that_absence_proves_nothing():
-    """The commercial trap: reading a manager's absence from a top-ten list as
+def test_a_top_n_sheet_warns_that_absence_proves_nothing():
+    """The commercial trap: reading a manager's absence from a top-N list as
     'does not hold' would talk a salesperson out of a real call."""
-    html = _render(fund_holdings=[_holding(disclosure_scope="top_n")])
+    html = _render(evidence=[_holding(disclosure_scope="top_n")])
     assert "보유하지 않는다는 뜻은 아닙니다" in html
-    assert "상위 10종목만" in html
+    assert "상위 N종목만" in html
 
 
-def test_a_full_portfolio_sheet_carries_no_such_warning():
-    html = _render(fund_holdings=[_holding(disclosure_scope="full",
-                                           positions_listed=64)])
+def test_a_full_portfolio_source_carries_no_such_warning():
+    """What a vendor feed with complete holdings would look like — the warning
+    has to stop firing, or it trains the reader to ignore it."""
+    html = _render(evidence=[_holding(disclosure_scope="full")])
     assert "전체 포트폴리오" in html
     assert "보유하지 않는다는 뜻은 아닙니다" not in html
 

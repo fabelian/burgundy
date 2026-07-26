@@ -16,6 +16,7 @@ from collectors.types import (
     HoldingRow,
     KrHoldingRow,
     PersonnelRow,
+    ProxyVoteRow,
     RawDoc,
 )
 
@@ -236,6 +237,37 @@ def insert_fund_holdings(conn, manager_id: int, fund_id: int,
         # updates as new rows would report a re-issued fact sheet as fresh
         # coverage.
         if res and res["inserted"]:
+            n += 1
+    return n
+
+
+# ---- proxy_votes (NI 81-106 voting records) ------------------------------
+
+def insert_proxy_votes(conn, manager_id: int, fund_id: int,
+                       rows: Iterable[ProxyVoteRow],
+                       raw_id: Optional[int]) -> int:
+    """Insert a voting record's meetings.
+
+    Plain DO NOTHING on conflict, unlike ``insert_fund_holdings``: a meeting on
+    a given date is a historical fact that does not get restated, so a re-fetch
+    has nothing to correct.
+    """
+    n = 0
+    for r in rows:
+        res = conn.execute(
+            """
+            INSERT INTO proxy_votes
+              (manager_id, fund_id, period_ended, meeting_date, security_key,
+               issuer_name, ticker, country, is_korean, ballots, raw_id)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ON CONFLICT (fund_id, meeting_date, security_key) DO NOTHING
+            RETURNING id
+            """,
+            (manager_id, fund_id, r.period_ended, r.meeting_date, r.security_key,
+             r.issuer_name, r.ticker, r.country, bool(r.is_korean), r.ballots,
+             raw_id),
+        ).fetchone()
+        if res:
             n += 1
     return n
 

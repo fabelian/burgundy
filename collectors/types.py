@@ -97,6 +97,35 @@ class FundHoldingRow:
 
 
 @dataclass
+class ProxyVoteRow:
+    """One meeting a fund voted at — evidence that it held the issuer.
+
+    Carries no weight, and that absence is the information: a voting record has
+    no top-N ceiling, so it reaches positions a fact sheet cannot show, but it
+    never says how large they are.
+
+    ``is_korean`` is classified here for the same reason it is on
+    ``FundHoldingRow`` — the Korea tab must not depend on a parser remembering.
+    """
+    period_ended: date
+    meeting_date: date
+    security_key: str
+    issuer_name: str
+    ticker: Optional[str] = None
+    country: Optional[str] = None
+    ballots: Optional[int] = None
+    is_korean: Optional[bool] = None
+
+    def __post_init__(self) -> None:
+        if self.is_korean is None:
+            from parsers.securities import is_korean
+
+            self.is_korean = is_korean(
+                country=self.country, name=self.issuer_name, ticker=self.ticker,
+            )
+
+
+@dataclass
 class AumRow:
     as_of_date: date
     aum: float
