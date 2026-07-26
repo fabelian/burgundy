@@ -258,14 +258,21 @@ def kr_fund_coverage(manager_id: int) -> list[dict]:
             """
             SELECT m.name AS manager, m.slug AS manager_slug,
                    f.name AS fund, f.mandate, f.cadence,
-                   h.latest_as_of, h.positions, h.disclosure_scope
+                   h.latest_as_of, h.positions, h.disclosure_scope,
+                   h.nav, h.nav_currency, h.total_holdings
               FROM funds f
               JOIN managers m ON m.id = f.manager_id
               LEFT JOIN LATERAL (
                     SELECT fh.as_of_date AS latest_as_of,
                            count(*) AS positions,
-                           max(fh.disclosure_scope) AS disclosure_scope
+                           max(fh.disclosure_scope) AS disclosure_scope,
+                           max(s.nav) AS nav,
+                           max(s.nav_currency) AS nav_currency,
+                           max(s.total_holdings) AS total_holdings
                       FROM fund_holdings fh
+                      LEFT JOIN fund_snapshots s
+                             ON s.fund_id = fh.fund_id
+                            AND s.as_of_date = fh.as_of_date
                      WHERE fh.fund_id = f.id
                      GROUP BY fh.as_of_date
                      ORDER BY fh.as_of_date DESC
@@ -345,9 +352,16 @@ def kr_evidence(manager_id: int) -> list[dict]:
             )
             SELECT f.name AS fund, g.security_name, g.weight, g.as_of_date,
                    g.disclosure_scope, g.meeting_date, g.period_ended,
-                   g.evidence
+                   g.evidence,
+                   s.nav AS fund_nav, s.nav_currency, s.total_holdings,
+                   -- A weight means nothing without the fund it is a weight of,
+                   -- so the amount is derived here rather than left to the
+                   -- template to multiply.
+                   (g.weight / 100.0) * s.nav AS implied_value
               FROM merged g
               JOIN funds f ON f.id = g.fund_id
+              LEFT JOIN fund_snapshots s
+                     ON s.fund_id = g.fund_id AND s.as_of_date = g.as_of_date
              ORDER BY g.weight DESC NULLS LAST, f.name, g.security_name
             """,
             {"manager_id": manager_id},
@@ -368,10 +382,14 @@ def kr_peer_holdings(manager_id: int) -> list[dict]:
             """
             SELECT DISTINCT ON (fh.manager_id, fh.security_key)
                    m.name AS manager, m.slug AS manager_slug,
-                   f.name AS fund, fh.security_name, fh.weight, fh.as_of_date
+                   f.name AS fund, fh.security_name, fh.weight, fh.as_of_date,
+                   s.nav AS fund_nav, s.nav_currency,
+                   (fh.weight / 100.0) * s.nav AS implied_value
               FROM fund_holdings fh
               JOIN funds f    ON f.id = fh.fund_id
               JOIN managers m ON m.id = fh.manager_id
+              LEFT JOIN fund_snapshots s
+                     ON s.fund_id = fh.fund_id AND s.as_of_date = fh.as_of_date
              WHERE fh.is_korean AND fh.manager_id <> %s AND m.is_active
              ORDER BY fh.manager_id, fh.security_key, fh.as_of_date DESC
             """,

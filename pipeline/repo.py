@@ -13,6 +13,7 @@ from typing import Iterable, Optional
 from collectors.types import (
     AumRow,
     FundHoldingRow,
+    FundSnapshotRow,
     HoldingRow,
     KrHoldingRow,
     PersonnelRow,
@@ -239,6 +240,36 @@ def insert_fund_holdings(conn, manager_id: int, fund_id: int,
         if res and res["inserted"]:
             n += 1
     return n
+
+
+def upsert_fund_snapshot(conn, manager_id: int, fund_id: int,
+                         row: FundSnapshotRow, raw_id: Optional[int]) -> None:
+    """Record what a document says about the fund itself.
+
+    Updated rather than ignored on conflict, for the same reason a holding's
+    weight is: a re-issued sheet with a corrected NAV must not leave every
+    weight on the tab being read against the old denominator.
+
+    A missing figure never overwrites one already stored — a sheet that omits
+    the NAV should leave the previous answer standing rather than blanking it.
+    """
+    conn.execute(
+        """
+        INSERT INTO fund_snapshots
+          (manager_id, fund_id, as_of_date, nav, nav_currency, total_holdings,
+           raw_id)
+        VALUES (%s,%s,%s,%s,%s,%s,%s)
+        ON CONFLICT (fund_id, as_of_date) DO UPDATE SET
+            nav            = COALESCE(EXCLUDED.nav, fund_snapshots.nav),
+            nav_currency   = COALESCE(EXCLUDED.nav_currency,
+                                      fund_snapshots.nav_currency),
+            total_holdings = COALESCE(EXCLUDED.total_holdings,
+                                      fund_snapshots.total_holdings),
+            raw_id         = EXCLUDED.raw_id
+        """,
+        (manager_id, fund_id, row.as_of_date, row.nav, row.nav_currency,
+         row.total_holdings, raw_id),
+    )
 
 
 # ---- proxy_votes (NI 81-106 voting records) ------------------------------

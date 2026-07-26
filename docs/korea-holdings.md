@@ -294,6 +294,33 @@ the top-N warning need no changes — the warning simply stops firing.
    **Samsung Electronics 2.8%** — 5.8% Korean, with no foreign holding wrongly claimed.
    Note the sheet prints `SK hynix Inc`, not `SK Hynix`, which the normalised key handles.
 
+   Extracted PDF text also carries **non-breaking spaces** (U+00A0) inside bracketed
+   labels. Patterns written against plain spaces silently match nothing there; the
+   security key normalises them away via NFKC, so stored names are unaffected.
+
+5. **`fund_snapshots`** (migration `006`) — what the document says about the *fund*.
+   A weight alone is not an answer: "3%" only means something against the fund it is 3%
+   of, and the sheet states that figure. With it kept, 3.0% of Mawer International Equity
+   becomes **≈C$218M**, which is the number a sales conversation turns on. The tab shows
+   the fund's size and the implied amount beside every weight.
+
+   The NAV must be read carefully — the sheet prints three similar figures in a row:
+
+   ```
+   Fund Net Asset Value (Series F, O, S):   $7,251.5 million   <- the fund
+   Total Net Asset Value (Series F):          $843.3 million   <- one series
+   Net Asset Value Per Unit:                      $103.55      <- per unit
+   ```
+
+   Matching `Net Asset Value` loosely takes whichever comes first, and every weight on
+   the tab is then read against a denominator that is wrong by 8.6× or by six orders of
+   magnitude. The pattern is anchored to the line start and to the word `Fund`. Currency
+   comes from the fund registry, not from the `$` — the symbol does not say which dollar.
+
+   Also kept is `total_holdings` (72), previously read to decide `disclosure_scope` and
+   discarded. The coverage table now shows **24 / 72**, so how much of the portfolio is
+   *not* on screen is visible rather than merely warned about.
+
 5. **`proxy_votes`** (migration `005`) and the **evidence view** behind the Korea tab.
    A voting record has no top-N ceiling and no weight; a fact sheet is the reverse.
    Joined, they separate three states that look identical in either source alone:

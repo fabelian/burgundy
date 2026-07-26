@@ -205,7 +205,9 @@ def _row(**kw):
             "security_name": "Samsung Electronics Co Ltd", "weight": 2.8,
             "as_of_date": date(2026, 6, 30), "disclosure_scope": "top_n",
             "meeting_date": date(2026, 3, 18),
-            "period_ended": date(2026, 6, 30), "evidence": "sized"}
+            "period_ended": date(2026, 6, 30), "evidence": "sized",
+            "fund_nav": 7_251_500_000.0, "nav_currency": "CAD",
+            "total_holdings": 72, "implied_value": 203_042_000.0}
     return {**base, **kw}
 
 

@@ -9,6 +9,7 @@ because that stored document is what calibration needs.
 from __future__ import annotations
 
 import io
+import re
 from datetime import date
 
 import pytest
@@ -170,7 +171,7 @@ def test_the_holdings_block_is_read_not_the_sector_block_above_it():
     """Sector and region weights sit higher on the same page in the identical
     'Name 12.3' shape. Anchoring one heading too early parses cleanly and
     silently reports a portfolio of sectors."""
-    rows = parse_factsheet_text(_mawer_text(), fund=FUND)
+    rows = parse_factsheet_text(_mawer_text(), fund=FUND).holdings
     names = [r.security_name for r in rows]
 
     assert "Taiwan Semiconductor Manufacturing Co Ltd" in names
@@ -183,7 +184,7 @@ def test_the_holdings_block_is_read_not_the_sector_block_above_it():
 def test_both_printed_columns_are_read():
     """The header repeats for the second column; restarting the block there
     would silently drop the first twelve positions."""
-    rows = parse_factsheet_text(_mawer_text(), fund=FUND)
+    rows = parse_factsheet_text(_mawer_text(), fund=FUND).holdings
     names = [r.security_name for r in rows]
 
     assert names[0] == "Taiwan Semiconductor Manufacturing Co Ltd"  # column 1
@@ -192,14 +193,14 @@ def test_both_printed_columns_are_read():
 
 
 def test_the_as_of_date_comes_from_the_document():
-    rows = parse_factsheet_text(_mawer_text(), fund=FUND)
+    rows = parse_factsheet_text(_mawer_text(), fund=FUND).holdings
     assert {r.as_of_date for r in rows} == {date(2026, 6, 30)}
 
 
 def test_cash_is_not_a_position():
     """It is printed inside the list and counted in the total, but ranking it
     as a holding would put 'Cash and Cash Equivalents' fourth in the fund."""
-    rows = parse_factsheet_text(_mawer_text(), fund=FUND)
+    rows = parse_factsheet_text(_mawer_text(), fund=FUND).holdings
     assert not any("Cash" in r.security_name for r in rows)
     # ...and dropping it must not leave a hole in the ranking
     assert [r.position_rank for r in rows] == list(range(1, 25))
@@ -209,7 +210,7 @@ def test_a_top_25_extract_of_72_holdings_is_not_called_complete():
     """'Number of Holdings: 72' against 25 listed is what proves the list is an
     extract — and the tab depends on that to stop reading an unprinted position
     as an absent one."""
-    rows = parse_factsheet_text(_mawer_text(), fund=FUND)
+    rows = parse_factsheet_text(_mawer_text(), fund=FUND).holdings
     assert {r.disclosure_scope for r in rows} == {"top_n"}
     assert {r.positions_listed for r in rows} == {25}
 
@@ -217,7 +218,7 @@ def test_a_top_25_extract_of_72_holdings_is_not_called_complete():
 def test_the_korean_positions_are_found_without_a_country_column():
     """The sheet has no per-security country, so identification falls entirely
     to the name rules — this is the case the whole tab rests on."""
-    rows = parse_factsheet_text(_mawer_text(), fund=FUND)
+    rows = parse_factsheet_text(_mawer_text(), fund=FUND).holdings
     korean = {r.security_name: r.weight for r in rows if r.is_korean}
 
     assert korean == {"SK hynix Inc": 3.0, "Samsung Electronics Co Ltd": 2.8}
@@ -226,7 +227,7 @@ def test_the_korean_positions_are_found_without_a_country_column():
 def test_no_foreign_holding_is_claimed_as_korean():
     """The commercial failure is a false positive: another country's company
     presented to a prospect as a Korean holding."""
-    rows = parse_factsheet_text(_mawer_text(), fund=FUND)
+    rows = parse_factsheet_text(_mawer_text(), fund=FUND).holdings
     wrongly_korean = [r.security_name for r in rows if r.is_korean
                       and r.security_name not in ("SK hynix Inc",
                                                   "Samsung Electronics Co Ltd")]
@@ -235,10 +236,82 @@ def test_no_foreign_holding_is_claimed_as_korean():
 
 def test_lowercased_printing_still_matches_the_name_rules():
     """The sheet prints 'SK hynix Inc', not 'SK Hynix Inc'."""
-    rows = parse_factsheet_text(_mawer_text(), fund=FUND)
+    rows = parse_factsheet_text(_mawer_text(), fund=FUND).holdings
     hynix = next(r for r in rows if r.security_name == "SK hynix Inc")
     assert hynix.is_korean is True
     assert hynix.security_key == "sk hynix"
+
+
+def test_the_funds_own_size_is_read_not_one_of_its_series():
+    """The sheet prints three similar figures in a row:
+
+        Fund Net Asset Value (Series F, O, S):   $7,251.5 million
+        Total Net Asset Value (Series F):          $843.3 million
+        Net Asset Value Per Unit:                      $103.55
+
+    Taking whichever matches "Net Asset Value" first is wrong by 8.6x or by six
+    orders of magnitude, and every weight on the tab is then read against it.
+    """
+    snapshot = parse_factsheet_text(_mawer_text(), fund=FUND).snapshot
+
+    assert snapshot.nav == 7_251_500_000.0
+    assert snapshot.nav != 843_300_000.0, "that is one series, not the fund"
+    assert snapshot.nav != 103.55, "that is the per-unit value"
+
+
+def test_the_whole_portfolio_count_is_kept_not_just_the_printed_one():
+    """72 held against 25 printed is what proves the list is an extract, and
+    the tab shows both so a reader can see how much is not on screen."""
+    doc = parse_factsheet_text(_mawer_text(), fund=FUND)
+    assert doc.snapshot.total_holdings == 72
+    assert len(doc.holdings) == 24
+
+
+def test_the_currency_comes_from_the_registry_not_the_dollar_sign():
+    """'$' does not say which dollar it is."""
+    doc = parse_factsheet_text(_mawer_text(), fund={**FUND, "currency": "CAD"})
+    assert doc.snapshot.nav_currency == "CAD"
+
+
+def test_a_sheet_without_a_fund_nav_reports_none_rather_than_a_guess():
+    """A weight shown against an invented denominator is worse than a weight
+    shown alone.
+
+    The line is removed by pattern, not by literal text: the PDF prints
+    non-breaking spaces inside "(Series F, O, S)", so a plain-space replace
+    matches nothing and quietly tests the opposite of what it says.
+    """
+    text = re.sub(r"^Fund Net Asset Value.*\n.*\n", "", _mawer_text(),
+                  flags=re.MULTILINE)
+    assert "Fund Net Asset Value" not in text, "the line must actually be gone"
+
+    snapshot = parse_factsheet_text(text, fund=FUND).snapshot
+    assert snapshot.nav is None
+
+
+def test_the_fund_nav_survives_the_non_breaking_spaces_the_pdf_prints():
+    """Extracted PDF text carries U+00A0 inside "(Series F, O, S)". A pattern
+    written against plain spaces would find no NAV at all."""
+    assert "\xa0" in _mawer_text(), "fixture should still contain the NBSPs"
+    assert parse_factsheet_text(_mawer_text(), fund=FUND).snapshot.nav is not None
+
+
+def test_no_security_name_carries_a_non_breaking_space():
+    """They would survive into the database and make two printings of one name
+    look like two positions."""
+    doc = parse_factsheet_text(_mawer_text(), fund=FUND)
+    assert not [h for h in doc.holdings if "\xa0" in h.security_name]
+    assert not [h for h in doc.holdings if "\xa0" in h.security_key]
+
+
+def test_the_implied_position_value_is_what_the_weight_means():
+    """3.0% of a $7.25bn fund is about C$218M — the number a sales
+    conversation actually turns on."""
+    doc = parse_factsheet_text(_mawer_text(), fund={**FUND, "currency": "CAD"})
+    hynix = next(h for h in doc.holdings if h.security_name == "SK hynix Inc")
+
+    implied = hynix.weight / 100 * doc.snapshot.nav
+    assert round(implied / 1_000_000) == 218
 
 
 # ---- the anti-silence rules ----------------------------------------------
@@ -248,7 +321,7 @@ def test_a_block_that_does_not_sum_to_the_printed_total_is_rejected():
     total gives it away."""
     text = _mawer_text().replace("Tencent Holdings Ltd 3.2\n", "")
     with pytest.raises(FactsheetFormatUnknown, match="sum to"):
-        parse_factsheet_text(text, fund=FUND)
+        parse_factsheet_text(text, fund=FUND).holdings
 
 
 def test_a_holdings_block_with_no_total_is_rejected():
@@ -256,13 +329,13 @@ def test_a_holdings_block_with_no_total_is_rejected():
     and an unchecked parse is what fills a tab with the wrong rows."""
     text = _mawer_text().replace("Total 58.7", "")
     with pytest.raises(FactsheetFormatUnknown, match="Total"):
-        parse_factsheet_text(text, fund=FUND)
+        parse_factsheet_text(text, fund=FUND).holdings
 
 
 def test_a_sheet_without_an_as_of_date_is_rejected():
     text = _mawer_text().replace("As at June 30, 2026", "")
     with pytest.raises(FactsheetFormatUnknown, match="As at"):
-        parse_factsheet_text(text, fund=FUND)
+        parse_factsheet_text(text, fund=FUND).holdings
 
 
 def test_a_redesigned_sheet_raises_instead_of_returning_nothing():
@@ -277,7 +350,7 @@ def test_a_wrapped_name_keeps_its_first_line():
     text = _mawer_text().replace(
         "Samsung Electronics Co Ltd 2.8",
         "Samsung Electronics\nCo Ltd 2.8")
-    rows = parse_factsheet_text(text, fund=FUND)
+    rows = parse_factsheet_text(text, fund=FUND).holdings
     assert any(r.security_name == "Samsung Electronics Co Ltd" and r.is_korean
                for r in rows)
 
@@ -314,7 +387,8 @@ def test_persist_keeps_the_document_instead_of_failing_the_fetch(db, manager):
 def test_persist_stores_parsed_rows_once_a_parser_exists(db, manager,
                                                          monkeypatch):
     """The seam the calibrated parser plugs into."""
-    from collectors.types import FundHoldingRow
+    from collectors.types import (FactsheetDoc, FundHoldingRow,
+                                  FundSnapshotRow)
     from parsers.securities import security_key
 
     db.execute(
@@ -325,10 +399,14 @@ def test_persist_stores_parsed_rows_once_a_parser_exists(db, manager,
     fund_id = db.execute("SELECT id FROM funds").fetchone()["id"]
 
     monkeypatch.setattr("collectors.factsheet.parse_factsheet",
-                        lambda *a, **kw: [FundHoldingRow(
+                        lambda *a, **kw: FactsheetDoc(
+                            snapshot=FundSnapshotRow(as_of_date=date(2024, 6, 30),
+                                                     nav=7_251_500_000.0,
+                                                     nav_currency="CAD"),
+                            holdings=[FundHoldingRow(
                             as_of_date=date(2024, 6, 30),
                             security_key=security_key("Samsung Electronics"),
-                            security_name="Samsung Electronics", weight=1.7)])
+                            security_name="Samsung Electronics", weight=1.7)]))
     collector = FactsheetCollector({"id": manager, "slug": "mawer"})
     target = type("T", (), {"meta": {"fund": {"id": fund_id,
                                               "slug": "international-equity"},

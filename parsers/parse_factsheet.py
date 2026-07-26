@@ -38,7 +38,7 @@ from typing import Optional
 
 from dateutil import parser as dateparse
 
-from collectors.types import FundHoldingRow
+from collectors.types import FactsheetDoc, FundHoldingRow, FundSnapshotRow
 from parsers.securities import security_key
 
 
@@ -101,6 +101,22 @@ def encode_payload(data: bytes) -> str:
 # ---------------------------------------------------------------------------
 
 _AS_OF = re.compile(r"As at\s+([A-Z][a-z]+\s+\d{1,2},\s+\d{4})")
+
+# The sheet prints three similar figures in a row:
+#
+#   Fund Net Asset Value (Series F, O, S):   $7,251.5 million   <- the fund
+#   Total Net Asset Value (Series F):          $843.3 million   <- one series
+#   Net Asset Value Per Unit:                      $103.55      <- per unit
+#
+# Matching "Net Asset Value" loosely takes whichever comes first and is wrong
+# by 8.6x or by six orders of magnitude, with nothing to show for it. Anchored
+# to the start of the line and to the word "Fund" so the other two cannot win.
+_FUND_NAV = re.compile(
+    r"^Fund Net Asset Value[^\n:]*:\s*\n?\s*\$?\s*([\d,]+(?:\.\d+)?)\s*"
+    r"(million|billion|thousand)?",
+    re.MULTILINE | re.IGNORECASE)
+
+_SCALE = {"thousand": 1_000, "million": 1_000_000, "billion": 1_000_000_000}
 _HOLDINGS_HEADER = re.compile(r"^Top\s+(\d+)\s+Holdings\b.*$", re.MULTILINE)
 _TOTAL = re.compile(r"^Total\s+(\d+(?:\.\d+)?)\s*$")
 # The footnote marker ("Number of Holdings1:") sits between the label and the
@@ -141,6 +157,22 @@ def _as_of_date(text: str) -> Optional[date]:
         return dateparse.parse(match.group(1)).date()
     except (ValueError, OverflowError):
         return None
+
+
+def _fund_nav(text: str) -> Optional[float]:
+    """The fund's net assets, in absolute units.
+
+    Returns None rather than a guess when the line is absent: a weight shown
+    against an invented denominator is worse than a weight shown alone.
+    """
+    match = _FUND_NAV.search(text)
+    if not match:
+        return None
+    try:
+        value = float(match.group(1).replace(",", ""))
+    except ValueError:
+        return None
+    return value * _SCALE.get((match.group(2) or "").lower(), 1)
 
 
 def _is_cash(name: str) -> bool:
@@ -188,16 +220,16 @@ def _holdings_entries(text: str) -> tuple[list[tuple[str, float]], int, Optional
 
 
 def parse_factsheet(payload: str, *, fund: Optional[dict] = None,
-                    period_label: Optional[str] = None) -> list[FundHoldingRow]:
-    """Positions listed by a fact sheet, from a stored ``raw_documents`` payload."""
+                    period_label: Optional[str] = None) -> FactsheetDoc:
+    """A fact sheet, from a stored ``raw_documents`` payload."""
     return parse_factsheet_text(pdf_text(decode_payload(payload)), fund=fund,
                                 period_label=period_label, _payload=payload)
 
 
 def parse_factsheet_text(text: str, *, fund: Optional[dict] = None,
                          period_label: Optional[str] = None,
-                         _payload: Optional[str] = None) -> list[FundHoldingRow]:
-    """Positions listed by a fact sheet, from its extracted text.
+                         _payload: Optional[str] = None) -> FactsheetDoc:
+    """A fact sheet, from its extracted text: fund-level facts plus positions.
 
     Split from ``parse_factsheet`` so the layout rules can be tested against a
     checked-in text fixture instead of half a megabyte of binary.
@@ -237,23 +269,34 @@ def parse_factsheet_text(text: str, *, fund: Optional[dict] = None,
     securities = [(name, weight) for name, weight in entries
                   if not _is_cash(name)]
 
-    total_holdings = _HOLDING_COUNT.search(text)
+    count_match = _HOLDING_COUNT.search(text)
+    total_holdings = int(count_match.group(1)) if count_match else None
     # "Number of Holdings" is the whole portfolio; the block is an extract of
     # it. Without that number the safe reading is the conservative one — a
     # top-N list wrongly called complete turns "not printed" into "not held".
-    scope = ("full" if total_holdings
-             and len(securities) >= int(total_holdings.group(1))
+    scope = ("full" if total_holdings is not None
+             and len(securities) >= total_holdings
              else "top_n")
 
-    return [
-        FundHoldingRow(
+    return FactsheetDoc(
+        snapshot=FundSnapshotRow(
             as_of_date=as_of,
-            security_key=security_key(name),
-            security_name=name,
-            weight=weight,
-            position_rank=rank,
-            disclosure_scope=scope,
-            positions_listed=claimed_n,
-        )
-        for rank, (name, weight) in enumerate(securities, start=1)
-    ]
+            nav=_fund_nav(text),
+            # Taken from the fund registry, not guessed from the "$" the sheet
+            # prints — the symbol alone does not say which dollar it is.
+            nav_currency=(fund or {}).get("currency"),
+            total_holdings=total_holdings,
+        ),
+        holdings=[
+            FundHoldingRow(
+                as_of_date=as_of,
+                security_key=security_key(name),
+                security_name=name,
+                weight=weight,
+                position_rank=rank,
+                disclosure_scope=scope,
+                positions_listed=claimed_n,
+            )
+            for rank, (name, weight) in enumerate(securities, start=1)
+        ],
+    )
