@@ -113,6 +113,12 @@ this repo.
    | reaches | past quarters — the only route to a trend | latest only |
    | `external_id` | `fund:period` | **none** |
 
+   `cadence` must be one of the modelled ones — `monthly` / `quarterly` /
+   `semi-annual` / `annual`. An unmodelled value raises rather than falling back to
+   quarterly: quartering a semi-annual MRFP would look for Q1 and Q3 documents that were
+   never filed and date the ones that exist to a period they do not cover. The failure is
+   isolated to the fund, so one mistyped cadence cannot blind a manager's other funds.
+
    The `external_id` distinction is not cosmetic. Keyed by one, a fixed URL would be
    marked seen on its first fetch and every later quarter skipped forever; with none,
    dedup falls to the content hash, so the document is re-read each run and only a
@@ -157,6 +163,34 @@ this repo.
    Result on the calibration document: 24 securities, of which **SK hynix 3.0%** and
    **Samsung Electronics 2.8%** — 5.8% Korean, with no foreign holding wrongly claimed.
    Note the sheet prints `SK hynix Inc`, not `SK Hynix`, which the normalised key handles.
+
+## SEDAR+ — a second document source, but not an automatable one
+
+The attraction is real: **MRFP** (Management Report of Fund Performance, NI 81-106)
+carries a "Summary of Investment Portfolio" listing the **top 25 holdings** — the same
+depth as the Mawer fact sheet — and **Fund Facts** carries the top 10. Both are regulated
+formats, so one parser plausibly covers all four remaining managers instead of four
+site-specific ones. Cadence is semi-annual, slower than a quarterly fact sheet but well
+inside what this is for.
+
+Two things stop it being the clean sweep it looks like, and both matter before anyone
+builds toward it:
+
+- **SEDAR+ is not EDGAR.** EDGAR publishes stable, documented JSON (`data.sec.gov`) with
+  permanent archive paths, which is why `edgar_13f` can discover filings unattended.
+  SEDAR+ has a search UI over POST endpoints and hands out session-scoped document links;
+  there is no documented public API and no stable per-filing URL to build a template
+  from. Discovery there would have to be written against undocumented endpoints — the
+  same blind-target problem as an invented fact-sheet URL, one layer up. Not attempted.
+- **Only prospectus-offered mutual funds file MRFP at all.** Pooled funds and segregated
+  institutional mandates do not, and several of these managers reach Korean equity
+  precisely through those. A manager absent from SEDAR+ has therefore disclosed nothing
+  *there* — it is not evidence about the manager.
+
+What SEDAR+ **is** good for: obtaining documents by hand. An MRFP retrieved from the
+search UI drops straight into the existing path — register the fund with `cadence:
+"semi-annual"`, add its layout to `parse_factsheet_text`, done. The collector, schema and
+Korea tab need no changes to accept one.
 
 ## What remains
 

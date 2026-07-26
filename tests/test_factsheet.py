@@ -17,6 +17,7 @@ import pathlib
 
 from collectors.factsheet import (
     FactsheetCollector,
+    UnknownCadence,
     expand_template,
     recent_periods,
 )
@@ -75,6 +76,45 @@ def test_monthly_periods_step_by_month():
     periods = recent_periods("monthly", date(2025, 2, 10), count=3)
     assert [p["label"] for p in periods] == ["2025-02", "2025-01", "2024-12"]
     assert periods[0]["as_of"] == date(2025, 2, 28)
+
+
+def test_semi_annual_periods_are_halves_not_quarters():
+    """An MRFP is filed semi-annually. Quartering it would look for Q1 and Q3
+    documents that were never filed, and label the ones that exist with a
+    quarter they do not cover."""
+    periods = recent_periods("semi-annual", date(2026, 7, 26), count=4)
+
+    assert [p["label"] for p in periods] == ["2026H2", "2026H1",
+                                             "2025H2", "2025H1"]
+    assert [p["as_of"] for p in periods] == [
+        date(2026, 12, 31), date(2026, 6, 30),
+        date(2025, 12, 31), date(2025, 6, 30)]
+
+
+def test_annual_periods_step_by_year():
+    periods = recent_periods("annual", date(2026, 7, 26), count=2)
+    assert [p["label"] for p in periods] == ["2026", "2025"]
+    assert periods[0]["as_of"] == date(2026, 12, 31)
+
+
+def test_an_unmodelled_cadence_raises_instead_of_silently_quartering():
+    """Falling back to quarterly is how a semi-annual filing would get dated to
+    a period it does not cover — a wrongly dated holding is worse than an
+    uncollected one."""
+    with pytest.raises(UnknownCadence):
+        recent_periods("fortnightly", date(2026, 7, 26))
+
+
+def test_one_mistyped_cadence_does_not_blind_a_managers_other_funds(monkeypatch):
+    broken = {**FUND, "slug": "broken", "cadence": "fortnightly"}
+    collector = FactsheetCollector({"id": 1, "slug": "mawer"})
+    monkeypatch.setattr(FactsheetCollector, "_funds",
+                        lambda self: [broken, FUND])
+
+    targets = collector.discover()
+
+    assert targets, "the healthy fund still has to be collected"
+    assert all(not t.external_id.startswith("broken:") for t in targets)
 
 
 def test_the_url_template_expands_to_the_documented_mawer_form():

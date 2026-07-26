@@ -33,12 +33,25 @@ from parsers.parse_factsheet import (
 from pipeline import funds as funds_registry
 from pipeline import repo
 
-# How far back to look for documents on each run. Two years of quarters is
-# enough to establish a trend line without re-requesting a decade every week;
-# periods already fetched are skipped by external_id, so the cost after the
-# first run is only the periods that have appeared since.
-_QUARTERS_BACK = 8
-_MONTHS_BACK = 24
+# How far back to look for documents on each run, per cadence. Roughly two to
+# three years each: enough to establish a trend without re-requesting a decade
+# every week. Periods already fetched are skipped by external_id, so the cost
+# after the first run is only the periods that have appeared since.
+#
+# The step is in months, and it is what makes a cadence real rather than a
+# label. An MRFP is semi-annual, and treating one as quarterly would look for
+# Q1 and Q3 documents that were never filed while labelling the ones that do
+# exist with a quarter they do not cover.
+_CADENCES = {
+    "monthly":     {"step": 1,  "back": 24},
+    "quarterly":   {"step": 3,  "back": 8},
+    "semi-annual": {"step": 6,  "back": 6},
+    "annual":      {"step": 12, "back": 3},
+}
+
+
+class UnknownCadence(ValueError):
+    """A fund declares a publication cadence the expander does not model."""
 
 
 def _quarter_of(month: int) -> int:
@@ -49,29 +62,50 @@ def _period_end(year: int, month: int) -> date:
     return date(year, month, calendar.monthrange(year, month)[1])
 
 
+def _label(cadence: str, year: int, month: int) -> str:
+    if cadence == "monthly":
+        return f"{year}-{month:02d}"
+    if cadence == "semi-annual":
+        return f"{year}H{1 if month <= 6 else 2}"
+    if cadence == "annual":
+        return str(year)
+    return f"{year}Q{_quarter_of(month)}"
+
+
 def recent_periods(cadence: str, today: date,
                    count: Optional[int] = None) -> list[dict]:
     """Publication periods to look for, newest first.
 
     The current period is included even though its document may not exist yet —
-    a fund that publishes early would otherwise go unread for three months, and
-    a missing period costs one 404.
+    a fund that publishes early would otherwise go unread for a whole period,
+    and a period that does not exist costs one 404.
+
+    An unmodelled cadence raises rather than falling back to quarterly. Silently
+    quartering a semi-annual filing yields labels naming periods the document
+    does not cover, and a wrongly dated holding is worse than an uncollected one.
     """
-    monthly = cadence == "monthly"
-    n = count if count is not None else (_MONTHS_BACK if monthly else _QUARTERS_BACK)
+    spec = _CADENCES.get(cadence)
+    if spec is None:
+        raise UnknownCadence(
+            f"cadence {cadence!r} is not modelled; known: "
+            f"{', '.join(sorted(_CADENCES))}")
+    step = spec["step"]
+    n = count if count is not None else spec["back"]
+
     out: list[dict] = []
     year, month = today.year, today.month
-    if not monthly:
-        month = _quarter_of(month) * 3      # snap to the quarter-end month
+    if step > 1:
+        # Snap to the end of the period currently in progress, so the newest
+        # entry names a period rather than today's month.
+        month = ((month - 1) // step + 1) * step
     for _ in range(n):
-        quarter = _quarter_of(month)
         out.append({
-            "label": f"{year}-{month:02d}" if monthly else f"{year}Q{quarter}",
+            "label": _label(cadence, year, month),
             "as_of": _period_end(year, month),
-            "vars": {"q": quarter, "yy": f"{year % 100:02d}",
-                     "yyyy": str(year), "mm": f"{month:02d}"},
+            "vars": {"q": _quarter_of(month), "yy": f"{year % 100:02d}",
+                     "yyyy": str(year), "mm": f"{month:02d}",
+                     "h": 1 if month <= 6 else 2},
         })
-        step = 1 if monthly else 3
         month -= step
         while month <= 0:
             month += 12
@@ -106,7 +140,14 @@ class FactsheetCollector(BaseCollector):
             if fund.get("doc_url_template"):
                 # The period is in the path, so each one is a distinct document
                 # and an external_id skips the ones already fetched.
-                for period in recent_periods(fund["cadence"], today):
+                try:
+                    periods = recent_periods(fund["cadence"], today)
+                except UnknownCadence as exc:
+                    # Isolated to the fund: one mistyped cadence must not blind
+                    # the manager's other funds for the whole run.
+                    print(f"[{self.log_prefix}] {fund['slug']}: {exc}; skipped")
+                    periods = []
+                for period in periods:
                     targets.append(FetchTarget(
                         source=self.source,
                         external_id=f"{fund['slug']}:{period['label']}",
