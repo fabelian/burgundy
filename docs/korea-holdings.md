@@ -129,34 +129,55 @@ this repo.
    an empty table can be read correctly: a fund with no document collected is *unknown*,
    not empty. The DART section survives below, labelled as the safety net it is.
 
+4. **`parsers/parse_factsheet.py`** — calibrated against the Mawer International Equity
+   Fund (Series F) sheet as at 30 June 2026. Its extracted text is checked in at
+   `tests/fixtures/mawer_international_equity_series_f.txt`.
+
+   What the real document dictated:
+
+   - The block is headed `Top 25 Holdings % Weight` and **appears twice**, once per
+     printed column, then ends at `Total 58.7`. Restarting at the second header drops
+     the first twelve positions.
+   - Equity Sector Weights and Region Weights sit higher on the same page in the
+     identical `Name 12.3` shape. A block anchored one heading early parses cleanly and
+     silently reports a portfolio of sectors.
+   - **There is no per-security country column.** Korean identification falls entirely to
+     the name rules in `parsers/securities.py` — that list is load-bearing, not a nicety.
+   - `Cash and Cash Equivalents` is printed inside the list and counted in the total. It
+     is checked, then dropped: it is not a position and must not rank as one.
+   - `Number of Holdings: 72` against 25 listed is what proves the list is an extract.
+
+   Two anti-silence rules, because the failure that matters is a plausible empty answer
+   rather than a crash — "holds nothing Korean" is a sentence someone acts on:
+
+   - every anchor is required; a redesigned sheet raises rather than returning `[]`.
+   - the parsed weights are checked against the document's **own printed total**. A
+     dropped or spurious row parses perfectly well; only the sum gives it away.
+
+   Result on the calibration document: 24 securities, of which **SK hynix 3.0%** and
+   **Samsung Electronics 2.8%** — 5.8% Korean, with no foreign holding wrongly claimed.
+   Note the sheet prints `SK hynix Inc`, not `SK Hynix`, which the normalised key handles.
+
 ## What remains
 
-**The fact-sheet parser is not calibrated.** `parsers.parse_factsheet.parse_factsheet`
-raises `FactsheetFormatUnknown` rather than guessing a layout — writing one blind is how
-the DART sweep went wrong: it ran clean, filled the Korea tab, and every row in it was
-the wrong kind of company. The collector still runs, and that is the point: it fetches
-and keeps the document, which is what calibration needs.
-
-The sandbox has **no outbound network at all** — `example.com`, `sec.gov`, `mawer.com`
-and the Azure CDN all fail identically (proxy `403` at CONNECT, i.e. policy denial rather
-than a site-side block), so this is not an allowlist that happens to omit one host, and a
-fresh session does not fix it. Two ways forward, either is enough:
-
-- upload one Mawer International Equity fact sheet into the session, or
-- let the collector run in production and read the stored PDF back out of
-  `raw_documents` (`source = 'factsheet'`).
-
-`describe()` and `pdf_text()` in that module are already written and format-independent;
-they report page count and whether a text layer exists, which is what decides between a
-text parser and OCR. `parse_factsheet` then needs to return, per printed position: name,
-weight, country when the sheet has the column, the stated as-of date, and whether the
-list is the whole portfolio or only the top N.
-
 **The other four managers have no funds registered.** `config.FUNDS` holds only Mawer
-International Equity, whose document path is the one confirmed by observation. A fund is
-added once its URL has been *seen*, never guessed — the same rule the CIKs follow. An
-invented template would 404 quietly on every run and read as "this manager discloses
-nothing", which is indistinguishable from a real absence.
+International Equity, whose document paths are the ones confirmed by observation. A fund
+is added once its URL has been *seen*, never guessed — the same rule the CIKs follow. An
+invented URL would 404 quietly on every run and read as "this manager discloses nothing",
+which is indistinguishable from a real absence.
+
+**The parser is calibrated against one manager's layout.** Mawer's is now known; the
+other four will differ, and each will need its own calibration against a real document.
+`parse_factsheet_text` is the seam to extend, and the anti-silence rules mean an
+uncalibrated layout fails loudly instead of reporting an empty portfolio.
+
+**The sandbox has no outbound network at all** — `example.com`, `sec.gov`, `mawer.com`
+and the Azure CDN all fail identically (proxy `403` at CONNECT, i.e. policy denial rather
+than a site-side block), so this is not an allowlist omitting one host, and a fresh
+session does not fix it. To calibrate another manager, either upload its fact sheet into
+the session, or let the collector run in production and read the stored PDF back out of
+`raw_documents` (`source = 'factsheet'`). `describe()` reports whether a text layer
+exists, which is what decides between a text parser and OCR.
 
 ## Operational notes
 
@@ -168,9 +189,12 @@ nothing", which is indistinguishable from a real absence.
   A long backfill was killed twice this way. Switch the config file back before merging.
 - The Korean sweep now **refuses to start without an explicit `--since` /
   `KR_BACKFILL_SINCE`**, so it can no longer restart itself on an unrelated deploy.
-- The fact-sheet collector reports `new_raw > 0` with `new_rows = 0` until the parser is
-  calibrated. That is the expected state, and it is visible on the dashboard's collector
-  panel — it is not the same signal as a quiet period, where `new_raw` is 0 too.
+- A fact-sheet run showing `new_raw > 0` with `new_rows = 0` means the document was
+  fetched but its layout was not recognised — expected for a manager not yet calibrated,
+  and visible on the dashboard's collector panel. It is not the same signal as a quiet
+  period, where `new_raw` is 0 too. The reason — which anchor failed, and the document's
+  page/character counts — is printed to the run log, and the PDF itself is kept in
+  `raw_documents` to calibrate against.
 - Local development needs a database: there is no Postgres running in a fresh sandbox and
   the DB-backed tests silently `skip` without one. `initdb` under `/var/lib/postgresql`
   (not the scratchpad — the `postgres` user cannot traverse it) and point `DATABASE_URL`

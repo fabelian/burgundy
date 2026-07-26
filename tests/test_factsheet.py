@@ -13,6 +13,8 @@ from datetime import date
 
 import pytest
 
+import pathlib
+
 from collectors.factsheet import (
     FactsheetCollector,
     expand_template,
@@ -24,8 +26,18 @@ from parsers.parse_factsheet import (
     describe,
     encode_payload,
     parse_factsheet,
+    parse_factsheet_text,
     pdf_text,
 )
+
+FIXTURES = pathlib.Path(__file__).parent / "fixtures"
+
+
+def _mawer_text() -> str:
+    """Text of the Mawer International Equity (Series F) sheet, 30 June 2026 —
+    the document this parser was calibrated against."""
+    return (FIXTURES / "mawer_international_equity_series_f.txt").read_text(
+        encoding="utf-8")
 
 
 def _blank_pdf(pages: int = 1) -> bytes:
@@ -112,16 +124,132 @@ def test_pdf_text_separates_pages():
     assert pdf_text(_blank_pdf(pages=3)).count("\f") == 2
 
 
-# ---- the refusal ---------------------------------------------------------
+# ---- the real document ---------------------------------------------------
 
-def test_parsing_refuses_rather_than_inventing_holdings():
+def test_the_holdings_block_is_read_not_the_sector_block_above_it():
+    """Sector and region weights sit higher on the same page in the identical
+    'Name 12.3' shape. Anchoring one heading too early parses cleanly and
+    silently reports a portfolio of sectors."""
+    rows = parse_factsheet_text(_mawer_text(), fund=FUND)
+    names = [r.security_name for r in rows]
+
+    assert "Taiwan Semiconductor Manufacturing Co Ltd" in names
+    for sector_or_region in ("Financials", "Information Technology",
+                             "Asia Pacific Ex. Japan", "United Kingdom",
+                             "Emerging and Frontier Markets"):
+        assert sector_or_region not in names, sector_or_region
+
+
+def test_both_printed_columns_are_read():
+    """The header repeats for the second column; restarting the block there
+    would silently drop the first twelve positions."""
+    rows = parse_factsheet_text(_mawer_text(), fund=FUND)
+    names = [r.security_name for r in rows]
+
+    assert names[0] == "Taiwan Semiconductor Manufacturing Co Ltd"  # column 1
+    assert "Diploma PLC" in names                                   # column 2
+    assert len(rows) == 24
+
+
+def test_the_as_of_date_comes_from_the_document():
+    rows = parse_factsheet_text(_mawer_text(), fund=FUND)
+    assert {r.as_of_date for r in rows} == {date(2026, 6, 30)}
+
+
+def test_cash_is_not_a_position():
+    """It is printed inside the list and counted in the total, but ranking it
+    as a holding would put 'Cash and Cash Equivalents' fourth in the fund."""
+    rows = parse_factsheet_text(_mawer_text(), fund=FUND)
+    assert not any("Cash" in r.security_name for r in rows)
+    # ...and dropping it must not leave a hole in the ranking
+    assert [r.position_rank for r in rows] == list(range(1, 25))
+
+
+def test_a_top_25_extract_of_72_holdings_is_not_called_complete():
+    """'Number of Holdings: 72' against 25 listed is what proves the list is an
+    extract — and the tab depends on that to stop reading an unprinted position
+    as an absent one."""
+    rows = parse_factsheet_text(_mawer_text(), fund=FUND)
+    assert {r.disclosure_scope for r in rows} == {"top_n"}
+    assert {r.positions_listed for r in rows} == {25}
+
+
+def test_the_korean_positions_are_found_without_a_country_column():
+    """The sheet has no per-security country, so identification falls entirely
+    to the name rules — this is the case the whole tab rests on."""
+    rows = parse_factsheet_text(_mawer_text(), fund=FUND)
+    korean = {r.security_name: r.weight for r in rows if r.is_korean}
+
+    assert korean == {"SK hynix Inc": 3.0, "Samsung Electronics Co Ltd": 2.8}
+
+
+def test_no_foreign_holding_is_claimed_as_korean():
+    """The commercial failure is a false positive: another country's company
+    presented to a prospect as a Korean holding."""
+    rows = parse_factsheet_text(_mawer_text(), fund=FUND)
+    wrongly_korean = [r.security_name for r in rows if r.is_korean
+                      and r.security_name not in ("SK hynix Inc",
+                                                  "Samsung Electronics Co Ltd")]
+    assert wrongly_korean == []
+
+
+def test_lowercased_printing_still_matches_the_name_rules():
+    """The sheet prints 'SK hynix Inc', not 'SK Hynix Inc'."""
+    rows = parse_factsheet_text(_mawer_text(), fund=FUND)
+    hynix = next(r for r in rows if r.security_name == "SK hynix Inc")
+    assert hynix.is_korean is True
+    assert hynix.security_key == "sk hynix"
+
+
+# ---- the anti-silence rules ----------------------------------------------
+
+def test_a_block_that_does_not_sum_to_the_printed_total_is_rejected():
+    """A dropped or spurious row still parses cleanly; only the document's own
+    total gives it away."""
+    text = _mawer_text().replace("Tencent Holdings Ltd 3.2\n", "")
+    with pytest.raises(FactsheetFormatUnknown, match="sum to"):
+        parse_factsheet_text(text, fund=FUND)
+
+
+def test_a_holdings_block_with_no_total_is_rejected():
+    """Without the printed total there is nothing to check the parse against,
+    and an unchecked parse is what fills a tab with the wrong rows."""
+    text = _mawer_text().replace("Total 58.7", "")
+    with pytest.raises(FactsheetFormatUnknown, match="Total"):
+        parse_factsheet_text(text, fund=FUND)
+
+
+def test_a_sheet_without_an_as_of_date_is_rejected():
+    text = _mawer_text().replace("As at June 30, 2026", "")
+    with pytest.raises(FactsheetFormatUnknown, match="As at"):
+        parse_factsheet_text(text, fund=FUND)
+
+
+def test_a_redesigned_sheet_raises_instead_of_returning_nothing():
+    """An empty list would reach the Korea tab as 'holds nothing Korean'."""
+    with pytest.raises(FactsheetFormatUnknown, match="Top N Holdings"):
+        parse_factsheet_text("As at June 30, 2026\nsome new layout\n", fund=FUND)
+
+
+def test_a_wrapped_name_keeps_its_first_line():
+    """A long name can break across lines, leaving the weight on the second.
+    Filing the position under its tail would hide it from the name rules."""
+    text = _mawer_text().replace(
+        "Samsung Electronics Co Ltd 2.8",
+        "Samsung Electronics\nCo Ltd 2.8")
+    rows = parse_factsheet_text(text, fund=FUND)
+    assert any(r.security_name == "Samsung Electronics Co Ltd" and r.is_korean
+               for r in rows)
+
+
+def test_parsing_refuses_when_it_cannot_read_the_document_at_all():
     with pytest.raises(FactsheetFormatUnknown):
         parse_factsheet(encode_payload(_blank_pdf()), fund=FUND,
                         period_label="2024Q2")
 
 
 def test_the_refusal_says_which_document_and_what_it_looks_like():
-    """The message is the handover to whoever calibrates the parser."""
+    """The message is the handover to whoever re-calibrates the parser."""
     with pytest.raises(FactsheetFormatUnknown) as exc:
         parse_factsheet(encode_payload(_blank_pdf()), fund=FUND,
                         period_label="2024Q2")
