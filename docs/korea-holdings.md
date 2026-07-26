@@ -13,10 +13,68 @@ otherwise:
 The tracked set is fixed at the five managers in `config.MANAGERS` — Burgundy, Mawer,
 EdgePoint, Beutel Goodman, Letko Brosseau. Expanding the list is out of scope.
 
-## Sources ruled out, and why
+## The measurement ceiling
 
-Each of these was investigated and rejected on evidence, not preference. Recording it
-so the same ground is not covered twice.
+Every free source here is an **extract**, not a portfolio, and that is the property that
+decides what this system can and cannot claim. Measured on the calibration document
+(Mawer International Equity, 30 June 2026):
+
+| | |
+|---|---|
+| Fund size | $7,251.5M |
+| Holdings | 72 — of which **24 printed, 48 not** |
+| Printed | 53.8% of the fund |
+| **Not printed** | **41.3% = $2,995M across 48 positions** |
+| **Visibility floor** | **1.6% = $116M** |
+| Korean, confirmed | 5.8% = $421M (SK hynix 3.0, Samsung Electronics 2.8) |
+
+Two consequences, and the second is the useful one:
+
+- A Korean position **below ~$116M is invisible**, and no amount of parsing recovers it.
+  What this system reports is therefore a **lower bound on presence**, never a portfolio
+  and never an absence.
+- But an unprinted position **cannot exceed the smallest printed one** — it would have
+  ranked into the list otherwise. So "they hold $500M of Samsung and we missed it" is
+  excluded by construction. The blind spot has a known size.
+
+Say the bound, never the absence. `disclosure_scope` carries this into the schema and the
+Korea tab states it in words; the discipline only fails if someone reads a blank cell as
+a zero.
+
+A second, wider ceiling cuts across every free source: **pooled funds and segregated
+institutional mandates disclose nothing publicly at all.** Fact sheets, MRFP, Fund Facts
+and proxy voting records all cover published funds only. Several of these managers reach
+Korean equity precisely through vehicles none of them touch.
+
+## Source comparison
+
+The whole landscape in one place, so a vendor conversation or a re-derivation starts here
+rather than from scratch. "Ceiling" is the column that matters — freshness is worth
+nothing on a source that structurally cannot show a large cap.
+
+| Source | Ceiling | Freshness | Vehicles reached | Cost | Status |
+|---|---|---|---|---|---|
+| **Fund fact sheets** | top 10–25 | quarterly / monthly | published funds | free | **built** |
+| SEDAR+ **MRFP** | top 25 | semi-annual | prospectus mutual funds | free | manual retrieval |
+| SEDAR+ **Fund Facts** | top 10 | annual | prospectus mutual funds | free | manual retrieval |
+| **Proxy voting** (NI 81-106) | **none** | ~14-month lag | reporting-issuer funds | free | complement — see below |
+| **Ownership databases** (Morningstar Direct, Fundata, FactSet, LSEG, Bloomberg) | **unknown — decisive** | monthly | prospectus mutual funds | ~$10–25k/user/yr | unverified |
+| **Shareholder surveillance** (S&P Global/Ipreo, Georgeson, Morrow Sodali, CMi2i) | none | near-real-time | all | ~$30–100k/yr | issuer-side product |
+| 실질주주명부 via issuer IR | none | record date | all | IR relationship | out of scope |
+| DART 5% (대량보유) | large caps impossible | days | n/a | free | ruled out |
+| SEC N-PORT | none | monthly | US-registered funds | free | none of the five file |
+| 13F | US-listed only | quarterly | US positions | free | ruled out |
+| KSD / FSS / KRX | no per-manager breakdown | daily | n/a | free | ruled out |
+
+Cost figures are order-of-magnitude and **unverified** — this sector consolidates often
+and they may be stale. Confirm before budgeting.
+
+## Sources investigated and set aside
+
+Each of these was rejected on evidence, not preference. Recording it so the same ground is
+not covered twice — **and so a rejection can be revisited when the reasoning behind it
+changes.** One already has: proxy voting records were ruled out on freshness alone, and
+quantifying the measurement ceiling turned them into the most valuable source left.
 
 ### DART 대량보유상황보고 (5% rule) — structurally incapable
 
@@ -42,11 +100,36 @@ individual foreign manager is named are the 5% rule above and short-interest dis
 (KB, SHG, PKX, SKM, KT, KEP, LPL, WF, GRVY). Samsung Electronics and SK Hynix have no
 US listing, so they never appear. Ruled out.
 
-### Annual proxy voting records (NI 81-106) — too slow
+### Annual proxy voting records (NI 81-106) — reclassified: a complement, not a primary
 
 Canadian funds must publish, annually for the period ending 30 June, every meeting they
 voted — including foreign issuers, with tickers. A vote at Samsung's AGM proves the
-holding. But the lag reaches 14 months, which fails the freshness requirement. Ruled out.
+holding. The lag reaches 14 months, which fails the freshness requirement, and on that
+basis this was originally ruled out.
+
+That judgment was wrong to be final, and the reason only became visible once the
+measurement ceiling above was quantified: **a voting record has no top-N ceiling.** It
+lists every meeting voted, so a 0.3% position appears exactly as a 3% one does. It is the
+only free source that reaches below the ~$116M floor.
+
+The two sources fail in opposite directions, which is what makes them a pair:
+
+| | Fact sheet | Proxy voting record |
+|---|---|---|
+| Freshness | quarterly | ~14 months stale |
+| Coverage | **top 10–25 only** | **every position voted** |
+| Size disclosed | yes | no |
+
+Read together they answer more than either does alone:
+
+- in **both** → held, and sized
+- in the voting record, **not** the fact sheet → held, but **under ~$116M** — the band
+  this system is otherwise blind to
+- in **neither** → the closest thing to evidence of absence that free data allows
+
+For the sales question "does this manager hold Samsung at all", the stale source is the
+better one. Not built; the highest-value remaining source. Same vehicle limit as MRFP —
+pooled and segregated mandates file nothing.
 
 ### SEC Form N-PORT — these managers do not file it
 
@@ -78,10 +161,45 @@ Canadian and US-only funds can be skipped. Cadence is quarterly for Mawer, month
 some managers: slower than "real time", but far fresher than anything else that contains
 a Korean large cap at all.
 
-For genuine near-real-time, the only routes are commercial shareholder-surveillance
-(S&P Global/Ipreo, Nasdaq IR, LSEG), which work from custodial settlement data rather
-than disclosure, or an issuer's own 실질주주명부 via an IR relationship. Both are outside
-this repo.
+## Commercial data — one question decides whether it is worth buying
+
+Two product categories get conflated, and only one is sold in the direction this needs:
+
+| | **Surveillance** | **Ownership database** |
+|---|---|---|
+| Answers | "who owns **my** stock" | "who owns **this** stock" |
+| Sold to | issuer IR departments | anyone |
+| Built from | custodial / settlement data | filings and fund holdings |
+| Vendors | S&P Global (Ipreo), Georgeson, Morrow Sodali, CMi2i | FactSet, LSEG, Morningstar, Bloomberg |
+
+Surveillance is the technically complete answer and it is **not the product for us** — it
+is bought by Samsung Electronics to learn who its holders are, not by a third party to
+profile five managers. Korea also weakens it: US surveillance anchors on 13F, and Korea
+has no equivalent anchor, leaving 실질주주명부 — issuer-only — as the authoritative route.
+
+Ownership databases are purchasable, but most **aggregate the same disclosures already
+parsed here**, which buys convenience and inherits the ceiling unchanged. One exception
+would not:
+
+> **Fund companies supply data vendors with full portfolio holdings, even though the
+> regulatory document prints only the top 25.** If Morningstar Direct or Fundata carries
+> complete Canadian mutual fund holdings, the ~$116M floor disappears — Mawer's 48
+> unprinted positions and $2,995M become visible.
+
+That is the one question to ask, and it is answerable free on a sales trial:
+
+**"For Canadian mutual funds, do you carry the complete portfolio, or the MRFP top 25?"**
+
+- **Complete** → the ceiling is a purchasing decision, not a data-availability one, and
+  this becomes the highest-value spend on the list.
+- **Top 25** → the commercial route buys convenience only. Proxy voting records, free and
+  with no ceiling at all, are then the better investment.
+
+Either answer leaves pooled and segregated mandates untouched.
+
+Integration is cheap and already accounted for: a vendor feed is one more collector
+writing `fund_holdings` with `disclosure_scope = 'full'`. The schema, the Korea tab and
+the top-N warning need no changes — the warning simply stops firing.
 
 ## What is built
 
@@ -204,6 +322,10 @@ which is indistinguishable from a real absence.
 other four will differ, and each will need its own calibration against a real document.
 `parse_factsheet_text` is the seam to extend, and the anti-silence rules mean an
 uncalibrated layout fails loudly instead of reporting an empty portfolio.
+
+**Proxy voting records are the highest-value unbuilt source** — the only free one with no
+top-N ceiling, and the only way to see a Korean position under ~$116M. See the
+reclassification above.
 
 **The sandbox has no outbound network at all** — `example.com`, `sec.gov`, `mawer.com`
 and the Azure CDN all fail identically (proxy `403` at CONNECT, i.e. policy denial rather
