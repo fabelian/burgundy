@@ -1,3 +1,4 @@
+{% import '_macros.html' as m %}
 {% set collected = coverage | selectattr('latest_as_of') | list %}
 {% set top_n_only = evidence | selectattr('disclosure_scope', 'equalto', 'top_n') | list %}
 {% set unsized = evidence | selectattr('evidence', 'equalto', 'unsized') | list %}
@@ -20,8 +21,9 @@
     <table>
       <thead>
         <tr>
-          <th>종목</th><th>펀드</th>
-          <th class="num">비중</th><th>기준일</th><th>공시 범위</th>
+          <th>종목</th><th>펀드 <span class="muted">(운용규모)</span></th>
+          <th class="num">비중</th><th class="num">환산 금액</th>
+          <th>기준일</th><th>공시 범위</th>
           <th>의결권 기록</th><th>근거</th>
         </tr>
       </thead>
@@ -29,11 +31,15 @@
         {% for r in evidence %}
         <tr>
           <td><strong>{{ r.security_name }}</strong></td>
-          <td class="muted">{{ r.fund }}</td>
+          <td class="muted">
+            {{ r.fund }}
+            {%- if r.fund_nav is not none %}<br>{{ m.money(r.fund_nav, r.nav_currency) }}{% endif -%}
+          </td>
           <td class="num">
             {%- if r.weight is not none %}{{ '%.2f'|format(r.weight) }}%
             {%- else %}<span class="muted">규모 미상</span>{% endif -%}
           </td>
+          <td class="num"><strong>{{ m.money(r.implied_value, r.nav_currency) }}</strong></td>
           <td class="muted">{{ r.as_of_date or '' }}</td>
           <td class="muted">
             {%- if r.disclosure_scope == 'full' -%}전체 포트폴리오
@@ -102,7 +108,9 @@
   <div class="table-wrap">
   <table>
     <thead>
-      <tr><th>운용사</th><th>종목</th><th class="num">비중</th><th>기준일</th><th>펀드</th></tr>
+      <tr><th>운용사</th><th>종목</th><th class="num">비중</th>
+          <th class="num">환산 금액</th><th>기준일</th>
+          <th>펀드 <span class="muted">(운용규모)</span></th></tr>
     </thead>
     <tbody>
       {% for p in peers %}
@@ -110,8 +118,12 @@
         <td><strong>{{ p.manager }}</strong></td>
         <td>{{ p.security_name }}</td>
         <td class="num">{% if p.weight is not none %}{{ '%.2f'|format(p.weight) }}%{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td class="num"><strong>{{ m.money(p.implied_value, p.nav_currency) }}</strong></td>
         <td class="muted">{{ p.as_of_date }}</td>
-        <td class="muted">{{ p.fund }}</td>
+        <td class="muted">
+          {{ p.fund }}
+          {%- if p.fund_nav is not none %}<br>{{ m.money(p.fund_nav, p.nav_currency) }}{% endif -%}
+        </td>
       </tr>
       {% endfor %}
     </tbody>
@@ -126,17 +138,21 @@
   <div class="table-wrap">
   <table>
     <thead>
-      <tr><th>펀드</th><th>맨데이트</th><th>주기</th>
+      <tr><th>펀드</th><th class="num">운용규모</th><th>맨데이트</th><th>주기</th>
           <th>최신 문서 기준일</th><th class="num">종목 수</th><th>공시 범위</th></tr>
     </thead>
     <tbody>
       {% for c in coverage %}
       <tr>
         <td>{{ c.fund }}</td>
+        <td class="num">{{ m.money(c.nav, c.nav_currency) }}</td>
         <td class="muted">{{ c.mandate }}</td>
         <td class="muted">{{ c.cadence }}</td>
         <td>{% if c.latest_as_of %}{{ c.latest_as_of }}{% else %}<span class="muted">미수집</span>{% endif %}</td>
-        <td class="num muted">{{ c.positions or '' }}</td>
+        <td class="num muted">
+          {%- if c.total_holdings %}{{ c.positions }} / {{ c.total_holdings }}
+          {%- else %}{{ c.positions or '' }}{% endif -%}
+        </td>
         <td class="muted">
           {%- if c.disclosure_scope == 'full' -%}전체
           {%- elif c.disclosure_scope -%}상위 N

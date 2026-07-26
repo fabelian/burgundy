@@ -97,6 +97,27 @@ class FundHoldingRow:
 
 
 @dataclass
+class FundSnapshotRow:
+    """What a fund document says about the fund, as opposed to its positions.
+
+    ``nav`` is the whole fund's net assets in absolute units. It is what turns
+    a weight into a number anyone can act on: 3% is only meaningful against the
+    fund it is 3% of.
+    """
+    as_of_date: date
+    nav: Optional[float] = None
+    nav_currency: Optional[str] = None
+    total_holdings: Optional[int] = None
+
+
+@dataclass
+class FactsheetDoc:
+    """A parsed fund document: the fund-level facts plus its positions."""
+    snapshot: FundSnapshotRow
+    holdings: list = field(default_factory=list)
+
+
+@dataclass
 class ProxyVoteRow:
     """One meeting a fund voted at — evidence that it held the issuer.
 

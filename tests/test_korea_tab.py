@@ -197,7 +197,9 @@ def _holding(**kw):
             "as_of_date": date(2024, 6, 30),
             "security_name": "Samsung Electronics Co Ltd", "weight": 1.7,
             "disclosure_scope": "top_n", "meeting_date": None,
-            "period_ended": None, "evidence": "recent"}
+            "period_ended": None, "evidence": "recent",
+            "fund_nav": 7_251_500_000.0, "nav_currency": "CAD",
+            "total_holdings": 72, "implied_value": 123_275_500.0}
     return {**base, **kw}
 
 
@@ -216,7 +218,8 @@ def test_peer_rows_are_labelled_as_someone_elses():
         "manager": "Mawer Investment Management", "manager_slug": "mawer",
         "fund": "Mawer International Equity Fund",
         "security_name": "Samsung Electronics Co Ltd", "weight": 2.8,
-        "as_of_date": date(2026, 6, 30)}])
+        "as_of_date": date(2026, 6, 30), "fund_nav": 7_251_500_000.0,
+        "nav_currency": "CAD", "implied_value": 203_042_000.0}])
     assert "다른 운용사" in html
     assert "Mawer Investment Management" in html
     assert "Burgundy Asset Management가 아닌" in html
@@ -272,13 +275,18 @@ def test_nothing_collected_and_nothing_korean_read_differently():
                                      "fund": "F", "mandate": "international",
                                      "cadence": "quarterly",
                                      "latest_as_of": None, "positions": None,
-                                     "disclosure_scope": None}])
+                                     "disclosure_scope": None, "nav": None,
+                                     "nav_currency": None,
+                                     "total_holdings": None}])
     collected = _render(coverage=[{"manager": "M", "manager_slug": "m",
                                    "fund": "F", "mandate": "international",
                                    "cadence": "quarterly",
                                    "latest_as_of": date(2024, 6, 30),
                                    "positions": 10,
-                                   "disclosure_scope": "top_n"}])
+                                   "disclosure_scope": "top_n",
+                                   "nav": 7_251_500_000.0,
+                                   "nav_currency": "CAD",
+                                   "total_holdings": 72}])
 
     assert "아직 수집된 팩트시트가 없습니다" in uncollected
     assert "아직 수집된 팩트시트가 없습니다" not in collected

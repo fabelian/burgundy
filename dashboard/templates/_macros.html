@@ -29,6 +29,21 @@
   {%- endif -%}
 {% endmacro %}
 
+{% macro money(value, currency) %}
+  {#- Compact absolute amount. A weight only means something against the fund
+      it is a weight of, so wherever a percentage is shown the money it implies
+      is shown beside it — and never invented when the NAV is unknown. -#}
+  {%- if value is none -%}<span class="muted">—</span>
+  {%- else -%}
+    {%- set v = value | float -%}
+    {%- set cur = (currency or '') ~ ('$' if currency in ('CAD','USD','AUD') else '') -%}
+    {%- if v >= 1000000000 -%}{{ cur }}{{ '%.2f'|format(v / 1000000000) }}B
+    {%- elif v >= 1000000 -%}{{ cur }}{{ '%.1f'|format(v / 1000000) }}M
+    {%- elif v >= 1000 -%}{{ cur }}{{ '%.0f'|format(v / 1000) }}K
+    {%- else -%}{{ cur }}{{ '%.0f'|format(v) }}{%- endif -%}
+  {%- endif -%}
+{% endmacro %}
+
 {% macro change_row(c) %}
   <tr>
     <td class="muted">{{ c.detected_at.strftime('%Y-%m-%d %H:%M') }}</td>

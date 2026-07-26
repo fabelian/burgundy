@@ -196,12 +196,16 @@ class FactsheetCollector(BaseCollector):
         # attach a fact sheet to a quarter it does not cover.
         label = period["label"] if period else "latest"
         try:
-            rows = parse_factsheet(raw_payload, fund=fund, period_label=label)
+            doc = parse_factsheet(raw_payload, fund=fund, period_label=label)
         except FactsheetFormatUnknown as exc:
             # Deliberately not re-raised: the run must keep the fetched document
             # rather than roll it back, since that document is what unblocks the
             # parser. Returning 0 leaves new_raw > 0 / new_rows = 0 on the run.
             print(f"[{self.log_prefix}] {exc}")
             return 0
+        # The fund's own NAV first: a weight is only meaningful against the
+        # fund it is a weight of, and the tab reads the two together.
+        repo.upsert_fund_snapshot(conn, self.manager_id, fund["id"],
+                                  doc.snapshot, raw_id)
         return repo.insert_fund_holdings(conn, self.manager_id, fund["id"],
-                                         rows, raw_id)
+                                         doc.holdings, raw_id)
