@@ -142,6 +142,11 @@ def tab_korea(request: Request, manager: Optional[str] = Query(None),
     # since a 5% disclosure is that manager's own filing.
     return templates.TemplateResponse(request, "korea.html", {
         "coverage": queries.kr_fund_coverage(),
+        # The registry is populated by pipeline.run, not by the dashboard, so
+        # between a deploy and the next collector run the table is empty while
+        # config is not. Passing the configured count lets the tab tell those
+        # two apart instead of reporting "no funds tracked" when one is.
+        "configured_funds": len(config.FUNDS),
         "evidence": queries.kr_evidence(),
         "weight_series": queries.kr_weight_series(),
         "kr_series": queries.kr_series(m["id"]),

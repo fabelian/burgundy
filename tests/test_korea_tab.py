@@ -42,7 +42,8 @@ def _render(**ctx):
     from dashboard.app import templates
 
     base = {"coverage": [], "evidence": [], "weight_series": {},
-            "kr_series": {}, "history": [], "selected": "burgundy"}
+            "kr_series": {}, "history": [], "selected": "burgundy",
+            "configured_funds": 0}
     return templates.get_template("korea.html").render({**base, **ctx})
 
 
@@ -179,6 +180,33 @@ def test_a_full_portfolio_source_carries_no_such_warning():
     html = _render(evidence=[_holding(disclosure_scope="full")])
     assert "전체 포트폴리오" in html
     assert "보유하지 않는다는 뜻은 아닙니다" not in html
+
+
+def test_a_configured_but_unsynced_registry_does_not_read_as_untracked():
+    """The registry is filled by pipeline.run, not the dashboard, so between a
+    deploy and the next collector run the table is empty while config is not.
+    Reporting "no funds tracked" there states the opposite of the truth — the
+    same empty-reads-as-a-conclusion failure this tab exists to prevent."""
+    html = _render(coverage=[], configured_funds=1)
+
+    assert "동기화되지 않았습니다" in html
+    assert "추적 중인 펀드가 없습니다" not in html
+
+
+def test_an_empty_config_still_says_nothing_is_tracked():
+    html = _render(coverage=[], configured_funds=0)
+
+    assert "추적 중인 펀드가 없습니다" in html
+    assert "동기화되지 않았습니다" not in html
+
+
+def test_the_uncollected_state_points_at_the_collector_panel():
+    """'No fact sheets yet' has two causes — the collector has not run, or it
+    ran and the layout was not recognised — and they need different actions."""
+    html = _render(coverage=[], configured_funds=1)
+
+    assert "Overview 탭의 컬렉터 패널" in html
+    assert "new_rows = 0" in html
 
 
 def test_nothing_collected_and_nothing_korean_read_differently():
