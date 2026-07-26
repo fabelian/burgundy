@@ -137,18 +137,25 @@ def tab_us(request: Request, quarter: Optional[str] = Query(None),
 def tab_korea(request: Request, manager: Optional[str] = Query(None),
               _=Depends(require_auth)):
     m = _resolve(manager)
-    # Fund holdings are cross-manager on purpose — the tab exists to compare the
-    # five. The DART section below them stays scoped to the selected manager,
-    # since a 5% disclosure is that manager's own filing.
+    # Scoped to the selected manager like every other tab. Peer holdings are a
+    # separate, clearly-labelled section rather than extra rows in the same
+    # table — see queries.kr_peer_holdings.
     return templates.TemplateResponse(request, "korea.html", {
-        "coverage": queries.kr_fund_coverage(),
+        "manager_name": m["name"],
+        "peers": queries.kr_peer_holdings(m["id"]),
+        "coverage": queries.kr_fund_coverage(m["id"]),
         # The registry is populated by pipeline.run, not by the dashboard, so
         # between a deploy and the next collector run the table is empty while
         # config is not. Passing the configured count lets the tab tell those
         # two apart instead of reporting "no funds tracked" when one is.
-        "configured_funds": len(config.FUNDS),
-        "evidence": queries.kr_evidence(),
-        "weight_series": queries.kr_weight_series(),
+        #
+        # Counted for *this* manager: now that coverage is scoped, a global
+        # count would tell a manager with nothing configured that a fund of
+        # someone else's is merely waiting to sync.
+        "configured_funds": sum(1 for f in config.FUNDS
+                                if f["manager_slug"] == m["slug"]),
+        "evidence": queries.kr_evidence(m["id"]),
+        "weight_series": queries.kr_weight_series(m["id"]),
         "kr_series": queries.kr_series(m["id"]),
         "history": queries.kr_history(m["id"]),
         "selected": m["slug"],

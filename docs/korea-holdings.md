@@ -247,11 +247,23 @@ the top-N warning need no changes — the warning simply stops firing.
    carrying no period at all. Series differ in fees, not holdings, so either answers the
    Korean question.
 
-3. **The Korea tab**, rebuilt on `fund_holdings`. It is deliberately the one view that is
-   *not* scoped to the selected manager — the question is which of the five holds Samsung
-   and at what weight, and that is a comparison. Coverage is shown above the holdings so
-   an empty table can be read correctly: a fund with no document collected is *unknown*,
-   not empty. The DART section survives below, labelled as the safety net it is.
+3. **The Korea tab**, rebuilt on `fund_holdings` and **scoped to the selected manager**
+   like every other tab. Coverage is shown below the holdings so an empty table can be
+   read correctly: a fund with no document collected is *unknown*, not empty. The DART
+   section survives at the bottom, labelled as the safety net it is.
+
+   It was briefly cross-manager, on the reasoning that "which of the five holds Samsung"
+   is a comparison and paging through five tabs to answer it is absurd. That was wrong in
+   practice: the manager column is the first thing a narrow screen scrolls out of view,
+   and production showed Mawer's Samsung position sitting under a heading that said
+   Burgundy. **A misattributed holding is a worse failure than an extra click** — it is
+   the one error that would put a salesperson on a call about a position the firm does
+   not have.
+
+   The comparison survives as a separate **"다른 운용사"** card that *excludes* the
+   selected manager. Every row in it belongs to someone else by construction, so there is
+   nothing to misread even with the table scrolled. The rule generalises: when a column
+   is what makes a row's meaning correct, it cannot live in a table that scrolls.
 
 4. **`parsers/parse_factsheet.py`** — calibrated against the Mawer International Equity
    Fund (Series F) sheet as at 30 June 2026. Its extracted text is checked in at

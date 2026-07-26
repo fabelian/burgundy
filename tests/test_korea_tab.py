@@ -1,9 +1,9 @@
 """The Korea tab: what it shows, and what it must never let a reader conclude.
 
 The tab exists for institutional sales prospecting, so its failure modes are
-commercial rather than cosmetic. Showing one manager at a time makes the
-comparison unanswerable; showing a stale quarter beside a current one invents a
-change; and letting a top-ten fact sheet read as a full portfolio turns "not
+commercial rather than cosmetic. Attributing one firm's position to another is
+the worst of them; showing a stale quarter beside a current one invents a
+change; and letting a top-N fact sheet read as a full portfolio turns "not
 printed" into "does not hold", which is the wrong thing to tell a salesperson
 about to skip a call.
 """
@@ -41,17 +41,20 @@ def _row(name, weight, as_of=date(2024, 6, 30), scope="top_n", listed=10,
 def _render(**ctx):
     from dashboard.app import templates
 
-    base = {"coverage": [], "evidence": [], "weight_series": {},
+    base = {"coverage": [], "evidence": [], "peers": [], "weight_series": {},
             "kr_series": {}, "history": [], "selected": "burgundy",
-            "configured_funds": 0}
+            "manager_name": "Test Manager", "configured_funds": 0}
     return templates.get_template("korea.html").render({**base, **ctx})
 
 
 # ---- the query -----------------------------------------------------------
 
-def test_korean_holdings_span_every_manager(db, manager, other_manager):
-    """The tab answers 'which of the five holds Samsung' — scoping it to the
-    selected manager would mean clicking through all five to find out."""
+def test_the_tab_shows_only_the_selected_managers_holdings(db, manager,
+                                                           other_manager):
+    """The table was briefly cross-manager. On a narrow screen the manager
+    column is the first thing to scroll out of view, which left another firm's
+    Samsung position sitting under the selected manager's name — a misattributed
+    holding, which is worse than an extra click."""
     a = _fund(db, manager, "intl", "A International")
     b = _fund(db, other_manager, "intl", "B International")
     repo.insert_fund_holdings(db, manager, a,
@@ -60,11 +63,37 @@ def test_korean_holdings_span_every_manager(db, manager, other_manager):
                               [_row("SK Hynix Inc", 0.9)], None)
     db.commit()  # queries.* open their own connection
 
-    rows = queries.kr_evidence()
+    assert [r["security_name"] for r in queries.kr_evidence(manager)] == [
+        "Samsung Electronics Co Ltd"]
+    assert [r["security_name"] for r in queries.kr_evidence(other_manager)] == [
+        "SK Hynix Inc"]
 
-    assert {r["security_name"] for r in rows} == {"Samsung Electronics Co Ltd",
-                                                 "SK Hynix Inc"}
-    assert len({r["manager"] for r in rows}) == 2
+
+def test_peers_are_everyone_except_the_selected_manager(db, manager,
+                                                        other_manager):
+    """The comparison survives, but in a table where every row belongs to
+    someone else by construction — so nothing can be misread even scrolled."""
+    a = _fund(db, manager, "intl", "A International")
+    b = _fund(db, other_manager, "intl", "B International")
+    repo.insert_fund_holdings(db, manager, a,
+                              [_row("Samsung Electronics Co Ltd", 1.7)], None)
+    repo.insert_fund_holdings(db, other_manager, b,
+                              [_row("SK Hynix Inc", 0.9)], None)
+    db.commit()
+
+    peers = queries.kr_peer_holdings(manager)
+    assert [p["security_name"] for p in peers] == ["SK Hynix Inc"]
+    assert manager not in {p.get("manager_id") for p in peers}
+
+
+def test_a_manager_with_no_peers_holding_korea_gets_an_empty_comparison(
+        db, manager, other_manager):
+    a = _fund(db, manager, "intl", "A International")
+    repo.insert_fund_holdings(db, manager, a,
+                              [_row("Samsung Electronics Co Ltd", 1.7)], None)
+    db.commit()
+
+    assert queries.kr_peer_holdings(manager) == []
 
 
 def test_non_korean_positions_are_excluded(db, manager):
@@ -76,7 +105,7 @@ def test_non_korean_positions_are_excluded(db, manager):
     ], None)
     db.commit()
 
-    assert [r["security_name"] for r in queries.kr_evidence()] == [
+    assert [r["security_name"] for r in queries.kr_evidence(manager)] == [
         "Samsung Electronics Co Ltd"]
 
 
@@ -90,23 +119,36 @@ def test_only_the_latest_period_of_each_fund_is_shown(db, manager):
         _row("Samsung Electronics Co Ltd", 1.7, as_of=date(2024, 6, 30))], None)
     db.commit()
 
-    rows = queries.kr_evidence()
+    rows = queries.kr_evidence(manager)
     assert len(rows) == 1
     assert rows[0]["as_of_date"] == date(2024, 6, 30)
     assert float(rows[0]["weight"]) == 1.7
 
 
-def test_holdings_are_ranked_by_weight_for_the_sales_question(db, manager,
-                                                              other_manager):
-    a = _fund(db, manager, "intl", "A International")
-    b = _fund(db, other_manager, "intl", "B International")
-    repo.insert_fund_holdings(db, manager, a,
-                              [_row("SK Hynix Inc", 0.9)], None)
-    repo.insert_fund_holdings(db, other_manager, b,
-                              [_row("Samsung Electronics Co Ltd", 2.4)], None)
+def test_holdings_are_ranked_by_weight_for_the_sales_question(db, manager):
+    fund_id = _fund(db, manager, "intl", "A International")
+    repo.insert_fund_holdings(db, manager, fund_id, [
+        _row("SK Hynix Inc", 0.9),
+        _row("Samsung Electronics Co Ltd", 2.4)], None)
     db.commit()
 
-    assert [float(r["weight"]) for r in queries.kr_evidence()] == [2.4, 0.9]
+    assert [float(r["weight"]) for r in queries.kr_evidence(manager)] == [2.4, 0.9]
+
+
+def test_a_managers_two_funds_both_holding_samsung_stay_separate(db, manager):
+    """Keyed on the fund, not the manager — folding them would silently drop
+    one of two real positions."""
+    a = _fund(db, manager, "intl", "A International")
+    b = _fund(db, manager, "global", "A Global")
+    repo.insert_fund_holdings(db, manager, a,
+                              [_row("Samsung Electronics Co Ltd", 2.8)], None)
+    repo.insert_fund_holdings(db, manager, b,
+                              [_row("Samsung Electronics Co Ltd", 1.5)], None)
+    db.commit()
+
+    rows = queries.kr_evidence(manager)
+    assert len(rows) == 2
+    assert {r["fund"] for r in rows} == {"A International", "A Global"}
 
 
 def test_the_weight_trend_keeps_every_period(db, manager):
@@ -116,7 +158,7 @@ def test_the_weight_trend_keeps_every_period(db, manager):
             _row("Samsung Electronics Co Ltd", weight, as_of=as_of)], None)
     db.commit()
 
-    series = queries.kr_weight_series()
+    series = queries.kr_weight_series(manager)
     assert len(series) == 1
     assert [p["y"] for p in next(iter(series.values()))] == [1.4, 1.7]
 
@@ -127,7 +169,7 @@ def test_coverage_lists_a_tracked_fund_with_nothing_collected(db, manager):
     _fund(db, manager, "intl", "A International")
     db.commit()
 
-    coverage = queries.kr_fund_coverage()
+    coverage = queries.kr_fund_coverage(manager)
     assert len(coverage) == 1
     assert coverage[0]["fund"] == "A International"
     assert coverage[0]["latest_as_of"] is None
@@ -142,7 +184,7 @@ def test_coverage_reports_the_freshest_document_per_fund(db, manager):
         _row("Samsung Electronics Co Ltd", 1.7, as_of=date(2024, 6, 30))], None)
     db.commit()
 
-    row = queries.kr_fund_coverage()[0]
+    row = queries.kr_fund_coverage(manager)[0]
     assert row["latest_as_of"] == date(2024, 6, 30)
     assert row["positions"] == 2
 
@@ -159,11 +201,25 @@ def _holding(**kw):
     return {**base, **kw}
 
 
-def test_a_holding_renders_with_its_manager_and_weight():
-    html = _render(evidence=[_holding()])
+def test_the_heading_names_the_manager_the_rows_belong_to():
+    """The rows carry no manager of their own now, so the heading is what says
+    whose they are — it must not be silently droppable."""
+    html = _render(evidence=[_holding()],
+                   manager_name="Mawer Investment Management")
     assert "Mawer Investment Management" in html
     assert "Samsung Electronics Co Ltd" in html
     assert "1.70%" in html
+
+
+def test_peer_rows_are_labelled_as_someone_elses():
+    html = _render(manager_name="Burgundy Asset Management", peers=[{
+        "manager": "Mawer Investment Management", "manager_slug": "mawer",
+        "fund": "Mawer International Equity Fund",
+        "security_name": "Samsung Electronics Co Ltd", "weight": 2.8,
+        "as_of_date": date(2026, 6, 30)}])
+    assert "다른 운용사" in html
+    assert "Mawer Investment Management" in html
+    assert "Burgundy Asset Management가 아닌" in html
 
 
 def test_a_top_n_sheet_warns_that_absence_proves_nothing():
