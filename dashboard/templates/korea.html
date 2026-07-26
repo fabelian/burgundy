@@ -4,8 +4,8 @@
 
 <div class="notice">
   🇰🇷 한국 보유 종목은 <strong>운용사 자체 펀드 공시(팩트시트)</strong>에서 수집합니다.
-  International / Global / Emerging Markets 맨데이트만 대상이며, 5개 운용사를
-  <strong>한 화면에서 비교</strong>합니다.
+  International / Global / Emerging Markets 맨데이트만 대상입니다.
+  이 표는 <strong>선택된 운용사 것만</strong> 보여줍니다 — 다른 운용사는 아래 비교 카드에 있습니다.
   <br><span class="muted">
     DART 5% 대량보유 공시는 <em>발행사 지분율</em> 기준이라 삼성전자·SK하이닉스 같은
     대형주에는 구조적으로 나타날 수 없습니다(5%면 수십조 원). 대형주를 보려면
@@ -14,13 +14,13 @@
 </div>
 
 <div class="card">
-  <h2>한국 보유 종목 <span class="muted">— 5개 운용사 전체</span></h2>
+  <h2>한국 보유 종목 <span class="muted">— {{ manager_name }}</span></h2>
   {% if evidence %}
     <div class="table-wrap">
     <table>
       <thead>
         <tr>
-          <th>운용사</th><th>펀드</th><th>종목</th>
+          <th>종목</th><th>펀드</th>
           <th class="num">비중</th><th>기준일</th><th>공시 범위</th>
           <th>의결권 기록</th><th>근거</th>
         </tr>
@@ -28,9 +28,8 @@
       <tbody>
         {% for r in evidence %}
         <tr>
-          <td>{{ r.manager }}</td>
-          <td>{{ r.fund }}</td>
           <td><strong>{{ r.security_name }}</strong></td>
+          <td class="muted">{{ r.fund }}</td>
           <td class="num">
             {%- if r.weight is not none %}{{ '%.2f'|format(r.weight) }}%
             {%- else %}<span class="muted">규모 미상</span>{% endif -%}
@@ -66,7 +65,7 @@
     {% if top_n_only %}
     <p class="muted" style="margin-top:10px;">
       ⚠️ 비중은 <strong>상위 N종목만 인쇄된 팩트시트</strong>에서 나왔습니다.
-      여기에 나타나지 않는 운용사가 <em>보유하지 않는다는 뜻은 아닙니다</em> —
+      여기에 없는 한국 종목을 이 운용사가 <em>보유하지 않는다는 뜻은 아닙니다</em> —
       인쇄된 목록 밖에 있을 수 있습니다. 영업 접근 시 "미보유"로 단정하지 마십시오.
     </p>
     {% endif %}
@@ -92,19 +91,47 @@
   {% endif %}
 </div>
 
+{% if peers %}
 <div class="card">
-  <h2>커버리지 <span class="muted">— 어떤 펀드를 읽고 있는가</span></h2>
+  <h2>다른 운용사 <span class="muted">— 비교용</span></h2>
+  <p class="muted">
+    아래는 <strong>{{ manager_name }}가 아닌</strong> 운용사들의 한국 보유입니다.
+    위 표와 섞지 않은 이유는, 한 표에 담으면 운용사 컬럼이 좁은 화면에서 밀려나면서
+    남의 포지션이 선택된 운용사 것처럼 읽히기 때문입니다.
+  </p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>운용사</th><th>종목</th><th class="num">비중</th><th>기준일</th><th>펀드</th></tr>
+    </thead>
+    <tbody>
+      {% for p in peers %}
+      <tr>
+        <td><strong>{{ p.manager }}</strong></td>
+        <td>{{ p.security_name }}</td>
+        <td class="num">{% if p.weight is not none %}{{ '%.2f'|format(p.weight) }}%{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td class="muted">{{ p.as_of_date }}</td>
+        <td class="muted">{{ p.fund }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>커버리지 <span class="muted">— {{ manager_name }}가 읽고 있는 펀드</span></h2>
   {% if coverage %}
   <div class="table-wrap">
   <table>
     <thead>
-      <tr><th>운용사</th><th>펀드</th><th>맨데이트</th><th>주기</th>
+      <tr><th>펀드</th><th>맨데이트</th><th>주기</th>
           <th>최신 문서 기준일</th><th class="num">종목 수</th><th>공시 범위</th></tr>
     </thead>
     <tbody>
       {% for c in coverage %}
       <tr>
-        <td>{{ c.manager }}</td>
         <td>{{ c.fund }}</td>
         <td class="muted">{{ c.mandate }}</td>
         <td class="muted">{{ c.cadence }}</td>

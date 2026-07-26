@@ -100,7 +100,7 @@ def test_a_holding_in_both_sources_is_sized(db, manager):
     repo.insert_proxy_votes(db, manager, fund_id, [_vote()], None)
     db.commit()  # queries.* open their own connection
 
-    row = next(r for r in queries.kr_evidence()
+    row = next(r for r in queries.kr_evidence(manager)
                if r["security_name"] == "Samsung Electronics Co Ltd")
     assert row["evidence"] == "sized"
     assert float(row["weight"]) == 2.8
@@ -117,7 +117,7 @@ def test_a_vote_without_a_factsheet_line_is_the_sub_floor_band(db, manager):
         _vote(name="SK hynix Inc"), _vote(name="NAVER Corp")], None)
     db.commit()
 
-    naver = next(r for r in queries.kr_evidence()
+    naver = next(r for r in queries.kr_evidence(manager)
                  if r["security_name"] == "NAVER Corp")
     assert naver["evidence"] == "unsized"
     assert naver["weight"] is None, "a voting record never states a size"
@@ -131,7 +131,7 @@ def test_a_factsheet_line_without_a_vote_is_not_treated_as_suspect(db, manager):
     repo.insert_fund_holdings(db, manager, fund_id, [_holding()], None)
     db.commit()
 
-    row = queries.kr_evidence()[0]
+    row = queries.kr_evidence(manager)[0]
     assert row["evidence"] == "recent"
     assert float(row["weight"]) == 2.8
 
@@ -146,7 +146,7 @@ def test_the_two_sources_join_across_differently_printed_names(db, manager):
         _vote(name="Samsung Electronics Co., Ltd.")], None)
     db.commit()
 
-    rows = queries.kr_evidence()
+    rows = queries.kr_evidence(manager)
     assert len(rows) == 1
     assert rows[0]["evidence"] == "sized"
 
@@ -158,7 +158,7 @@ def test_non_korean_votes_stay_off_the_tab(db, manager):
         _vote(name="Samsung Electronics Co Ltd")], None)
     db.commit()
 
-    assert [r["security_name"] for r in queries.kr_evidence()] == [
+    assert [r["security_name"] for r in queries.kr_evidence(manager)] == [
         "Samsung Electronics Co Ltd"]
 
 
@@ -169,20 +169,21 @@ def test_only_the_latest_meeting_of_each_issuer_is_shown(db, manager):
         _vote(meeting=date(2026, 3, 18))], None)
     db.commit()
 
-    rows = queries.kr_evidence()
+    rows = queries.kr_evidence(manager)
     assert len(rows) == 1
     assert rows[0]["meeting_date"] == date(2026, 3, 18)
 
 
-def test_weighted_rows_still_lead_the_table(db, manager, other_manager):
+def test_weighted_rows_still_lead_the_table(db, manager):
     """Weight-ranked as before; rows with no size fall to the end rather than
     displacing a real number."""
-    a, b = _fund(db, manager), _fund(db, other_manager)
-    repo.insert_fund_holdings(db, manager, a, [_holding(weight=2.8)], None)
-    repo.insert_proxy_votes(db, other_manager, b, [_vote(name="NAVER Corp")], None)
+    fund_id = _fund(db, manager)
+    repo.insert_fund_holdings(db, manager, fund_id, [_holding(weight=2.8)], None)
+    repo.insert_proxy_votes(db, manager, fund_id,
+                            [_vote(name="NAVER Corp")], None)
     db.commit()
 
-    rows = queries.kr_evidence()
+    rows = queries.kr_evidence(manager)
     assert [r["evidence"] for r in rows] == ["recent", "unsized"]
     assert rows[0]["weight"] is not None and rows[1]["weight"] is None
 
@@ -192,8 +193,9 @@ def test_weighted_rows_still_lead_the_table(db, manager, other_manager):
 def _render(**ctx):
     from dashboard.app import templates
 
-    base = {"coverage": [], "evidence": [], "weight_series": {},
-            "kr_series": {}, "history": [], "selected": "burgundy"}
+    base = {"coverage": [], "evidence": [], "peers": [], "weight_series": {},
+            "kr_series": {}, "history": [], "selected": "burgundy",
+            "manager_name": "Test Manager", "configured_funds": 0}
     return templates.get_template("korea.html").render({**base, **ctx})
 
 

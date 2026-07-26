@@ -246,8 +246,8 @@ def us_holdings(manager_id: int, as_of: Optional[date] = None) -> dict:
 # much", which is a comparison — showing one manager at a time would mean
 # clicking through five tabs to answer it.
 
-def kr_fund_coverage() -> list[dict]:
-    """Every tracked fund and the freshest document read from it.
+def kr_fund_coverage(manager_id: int) -> list[dict]:
+    """The selected manager's funds and the freshest document read from each.
 
     Rendered above the holdings so an empty table can be read correctly: a fund
     with no document collected yet is unknown, not empty, and the two must never
@@ -271,14 +271,22 @@ def kr_fund_coverage() -> list[dict]:
                      ORDER BY fh.as_of_date DESC
                      LIMIT 1
               ) h ON TRUE
-             WHERE f.is_active AND m.is_active
-             ORDER BY m.sort_order, f.sort_order, f.name
-            """
+             WHERE f.is_active AND m.is_active AND f.manager_id = %s
+             ORDER BY f.sort_order, f.name
+            """,
+            (manager_id,),
         ).fetchall()
 
 
-def kr_evidence() -> list[dict]:
-    """Korean positions across the five, with what each source can prove.
+def kr_evidence(manager_id: int) -> list[dict]:
+    """The selected manager's Korean positions, with what each source proves.
+
+    Scoped to one manager like every other tab. It was briefly cross-manager,
+    on the reasoning that "which of the five holds Samsung" is a comparison —
+    but the manager column is the first thing a narrow screen scrolls out of
+    view, which left another firm's Samsung position sitting under the selected
+    manager's name. An attribution error is a worse failure than an extra
+    click, and the comparison lives in ``kr_peer_holdings`` instead.
 
     A fact sheet prints only the top 10–25 positions, so it cannot show a
     holding below its smallest printed weight. A voting record has no such
@@ -310,7 +318,7 @@ def kr_evidence() -> list[dict]:
                        fh.fund_id, fh.security_key, fh.security_name,
                        fh.weight, fh.as_of_date, fh.disclosure_scope
                   FROM fund_holdings fh
-                 WHERE fh.is_korean
+                 WHERE fh.is_korean AND fh.manager_id = %(manager_id)s
                  ORDER BY fh.fund_id, fh.security_key, fh.as_of_date DESC
             ),
             voted AS (
@@ -318,7 +326,7 @@ def kr_evidence() -> list[dict]:
                        pv.fund_id, pv.security_key, pv.issuer_name,
                        pv.meeting_date, pv.period_ended
                   FROM proxy_votes pv
-                 WHERE pv.is_korean
+                 WHERE pv.is_korean AND pv.manager_id = %(manager_id)s
                  ORDER BY pv.fund_id, pv.security_key, pv.meeting_date DESC
             ),
             merged AS (
@@ -335,20 +343,44 @@ def kr_evidence() -> list[dict]:
                        ON v.fund_id = h.fund_id
                       AND v.security_key = h.security_key
             )
-            SELECT m.name AS manager, m.slug AS manager_slug, f.name AS fund,
-                   g.security_name, g.weight, g.as_of_date, g.disclosure_scope,
-                   g.meeting_date, g.period_ended, g.evidence
+            SELECT f.name AS fund, g.security_name, g.weight, g.as_of_date,
+                   g.disclosure_scope, g.meeting_date, g.period_ended,
+                   g.evidence
               FROM merged g
-              JOIN funds f    ON f.id = g.fund_id
-              JOIN managers m ON m.id = f.manager_id
-             ORDER BY g.weight DESC NULLS LAST, m.sort_order, f.name,
-                      g.security_name
-            """
+              JOIN funds f ON f.id = g.fund_id
+             ORDER BY g.weight DESC NULLS LAST, f.name, g.security_name
+            """,
+            {"manager_id": manager_id},
         ).fetchall()
 
 
-def kr_weight_series() -> dict[str, list[dict]]:
-    """Korean weight over time, one line per manager+fund+security."""
+def kr_peer_holdings(manager_id: int) -> list[dict]:
+    """The *other* managers' Korean positions, for comparison.
+
+    Deliberately excludes the selected manager rather than highlighting it.
+    Mixing the two in one table is what made the manager column load-bearing,
+    and a load-bearing column that scrolls off a phone misattributes holdings.
+    Here every row belongs to someone else by construction, so there is nothing
+    to misread even with the table scrolled.
+    """
+    with connect() as conn:
+        return conn.execute(
+            """
+            SELECT DISTINCT ON (fh.manager_id, fh.security_key)
+                   m.name AS manager, m.slug AS manager_slug,
+                   f.name AS fund, fh.security_name, fh.weight, fh.as_of_date
+              FROM fund_holdings fh
+              JOIN funds f    ON f.id = fh.fund_id
+              JOIN managers m ON m.id = fh.manager_id
+             WHERE fh.is_korean AND fh.manager_id <> %s AND m.is_active
+             ORDER BY fh.manager_id, fh.security_key, fh.as_of_date DESC
+            """,
+            (manager_id,),
+        ).fetchall()
+
+
+def kr_weight_series(manager_id: int) -> dict[str, list[dict]]:
+    """Korean weight over time for one manager, one line per fund+security."""
     with connect() as conn:
         rows = conn.execute(
             """
@@ -358,12 +390,14 @@ def kr_weight_series() -> dict[str, list[dict]]:
               JOIN funds f    ON f.id = fh.fund_id
               JOIN managers m ON m.id = fh.manager_id
              WHERE fh.is_korean AND fh.weight IS NOT NULL
-             ORDER BY m.sort_order, f.name, fh.security_name, fh.as_of_date
-            """
+               AND fh.manager_id = %s
+             ORDER BY f.name, fh.security_name, fh.as_of_date
+            """,
+            (manager_id,),
         ).fetchall()
     series: dict[str, list[dict]] = {}
     for r in rows:
-        label = f"{r['manager']} · {r['security_name']}"
+        label = f"{r['fund']} · {r['security_name']}"
         series.setdefault(label, []).append({
             "x": r["as_of_date"].isoformat(),
             "y": float(r["weight"]),
