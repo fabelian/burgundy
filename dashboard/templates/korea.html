@@ -82,9 +82,12 @@
     </p>
   {% else %}
     <p class="muted">
-      아직 수집된 팩트시트가 없습니다. <code>factsheet</code> 컬렉터가 문서를 받아
-      <code>raw_documents</code>에 적재하며, 파서는 실제 문서로 보정된 뒤 동작합니다
-      (<code>parsers/parse_factsheet.py</code>).
+      아직 수집된 팩트시트가 없습니다. <code>factsheet</code> 컬렉터는
+      <strong>주간</strong>으로 실행되며(팩트시트는 분기 공시), 다음 실행 후 표시됩니다.
+      <br>실행 여부는 <strong>Overview 탭의 컬렉터 패널</strong>에서 확인하십시오 —
+      <code>factsheet</code> 행이 아예 없으면 아직 안 돈 것이고,
+      <code>new_raw &gt; 0</code>인데 <code>new_rows = 0</code>이면 문서는 받았으나
+      해당 운용사 레이아웃이 아직 보정되지 않은 것입니다.
     </p>
   {% endif %}
 </div>
@@ -117,6 +120,14 @@
     </tbody>
   </table>
   </div>
+  {% elif configured_funds %}
+    <p class="muted">
+      <code>config.FUNDS</code>에 <strong>{{ configured_funds }}개</strong> 펀드가 등록돼 있으나,
+      아직 <code>funds</code> 레지스트리에 동기화되지 않았습니다.
+      레지스트리는 <code>pipeline.run</code>(컬렉터)이 채웁니다 —
+      다음 컬렉터 실행 또는 재배포 후에 표시됩니다.
+      <br>설정이 비어 있는 것과는 <em>다른 상태</em>입니다.
+    </p>
   {% else %}
     <p class="muted">
       추적 중인 펀드가 없습니다. 문서 URL이 <em>확인된</em> 펀드만
