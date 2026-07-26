@@ -28,8 +28,8 @@ def sync_from_config(conn) -> int:
         res = conn.execute(
             """
             INSERT INTO funds (manager_id, slug, name, mandate, series, currency,
-                               doc_url_template, cadence, sort_order)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                               doc_url_template, doc_url, cadence, sort_order)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT (manager_id, slug) DO UPDATE SET
                 name             = EXCLUDED.name,
                 mandate          = EXCLUDED.mandate,
@@ -40,13 +40,15 @@ def sync_from_config(conn) -> int:
                 -- never be fixed. A fund with no template keeps what it has.
                 doc_url_template = COALESCE(EXCLUDED.doc_url_template,
                                             funds.doc_url_template),
+                doc_url          = COALESCE(EXCLUDED.doc_url, funds.doc_url),
                 cadence          = EXCLUDED.cadence,
                 sort_order       = EXCLUDED.sort_order
             RETURNING id
             """,
             (manager["id"], f["slug"], f["name"], f["mandate"], f.get("series"),
              f.get("currency", "CAD"), f.get("doc_url_template"),
-             f.get("cadence", "quarterly"), f.get("sort_order", 100)),
+             f.get("doc_url"), f.get("cadence", "quarterly"),
+             f.get("sort_order", 100)),
         ).fetchone()
         if res:
             written += 1

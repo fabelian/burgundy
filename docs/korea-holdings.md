@@ -100,10 +100,28 @@ this repo.
    name. A share class stays in the key (a fund can hold the common and the preferred at
    once); legal suffixes do not (`POSCO Holdings Inc.` and `POSCO` are one position).
 
-2. **`collectors/factsheet.py`** — expands each tracked fund's URL template over recent
-   periods, downloads the PDF, stores it in `raw_documents` (base64; layer 1 keeps the
-   original bytes). Registered in `pipeline.run` as a **weekly** collector: fact sheets
-   are quarterly, so a daily fetch would re-request the same unchanged PDF six times.
+2. **`collectors/factsheet.py`** — downloads each tracked fund's PDF and stores it in
+   `raw_documents` (base64; layer 1 keeps the original bytes). Registered in
+   `pipeline.run` as a **weekly** collector: fact sheets are quarterly, so a daily fetch
+   would re-request the same unchanged PDF six times.
+
+   Managers publish in two shapes and the dedup rule differs between them:
+
+   | | `doc_url_template` | `doc_url` |
+   |---|---|---|
+   | path | period is in it (`2q24-…`) | fixed; contents replaced each quarter |
+   | reaches | past quarters — the only route to a trend | latest only |
+   | `external_id` | `fund:period` | **none** |
+
+   The `external_id` distinction is not cosmetic. Keyed by one, a fixed URL would be
+   marked seen on its first fetch and every later quarter skipped forever; with none,
+   dedup falls to the content hash, so the document is re-read each run and only a
+   genuinely new edition is stored — the same rule the DART collector uses.
+
+   Mawer offers both: the per-quarter path recorded above, and a CDN asset
+   (`az-prd-mawer-com-cms-….azurefd.net/…/Mawer_International_Equity_Fund_Series_F_….pdf`)
+   carrying no period at all. Series differ in fees, not holdings, so either answers the
+   Korean question.
 
 3. **The Korea tab**, rebuilt on `fund_holdings`. It is deliberately the one view that is
    *not* scoped to the selected manager — the question is which of the five holds Samsung
@@ -119,9 +137,10 @@ the DART sweep went wrong: it ran clean, filled the Korea tab, and every row in 
 the wrong kind of company. The collector still runs, and that is the point: it fetches
 and keeps the document, which is what calibration needs.
 
-The sandbox has **no outbound network at all** — `example.com` fails identically to
-`mawer.com` (proxy `403` at CONNECT, i.e. policy denial rather than a site-side block),
-so this is not an allowlist that happens to omit Mawer. Two ways forward, either is enough:
+The sandbox has **no outbound network at all** — `example.com`, `sec.gov`, `mawer.com`
+and the Azure CDN all fail identically (proxy `403` at CONNECT, i.e. policy denial rather
+than a site-side block), so this is not an allowlist that happens to omit one host, and a
+fresh session does not fix it. Two ways forward, either is enough:
 
 - upload one Mawer International Equity fact sheet into the session, or
 - let the collector run in production and read the stored PDF back out of

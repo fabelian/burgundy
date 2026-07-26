@@ -95,21 +95,38 @@ class FactsheetCollector(BaseCollector):
     def _funds(self) -> list[dict]:
         with connect() as conn:
             rows = funds_registry.for_manager(conn, self.manager_id)
-        return [f for f in rows if f.get("doc_url_template")]
+        return [f for f in rows
+                if f.get("doc_url_template") or f.get("doc_url")]
 
     # ---- discover -------------------------------------------------------
     def discover(self) -> list[FetchTarget]:
         targets: list[FetchTarget] = []
         today = date.today()
         for fund in self._funds():
-            for period in recent_periods(fund["cadence"], today):
+            if fund.get("doc_url_template"):
+                # The period is in the path, so each one is a distinct document
+                # and an external_id skips the ones already fetched.
+                for period in recent_periods(fund["cadence"], today):
+                    targets.append(FetchTarget(
+                        source=self.source,
+                        external_id=f"{fund['slug']}:{period['label']}",
+                        url=expand_template(fund["doc_url_template"], period),
+                        meta={"fund": fund, "period": period},
+                    ))
+            if fund.get("doc_url"):
+                # One address whose contents are replaced each period. It must
+                # carry *no* external_id: keyed by one, the first fetch would
+                # mark it seen and every later quarter would be skipped
+                # forever. With none, dedup falls to the content hash, so the
+                # document is re-read each run and only a genuinely new edition
+                # is stored — the same rule the DART collector uses.
                 targets.append(FetchTarget(
                     source=self.source,
-                    external_id=f"{fund['slug']}:{period['label']}",
-                    url=expand_template(fund["doc_url_template"], period),
-                    meta={"fund": fund, "period": period},
+                    external_id=None,
+                    url=fund["doc_url"],
+                    meta={"fund": fund, "period": None},
                 ))
-        print(f"[{self.log_prefix}] {len(targets)} fund-period document(s) to check")
+        print(f"[{self.log_prefix}] {len(targets)} fund document(s) to check")
         return targets
 
     # ---- fetch ----------------------------------------------------------
@@ -133,9 +150,12 @@ class FactsheetCollector(BaseCollector):
     def persist(self, conn, raw_id, raw_payload, target) -> int:
         fund = target.meta["fund"]
         period = target.meta["period"]
+        # A latest-only document states its own as-of date; there is no period
+        # in its URL to label it with, and guessing one from today's date would
+        # attach a fact sheet to a quarter it does not cover.
+        label = period["label"] if period else "latest"
         try:
-            rows = parse_factsheet(raw_payload, fund=fund,
-                                   period_label=period["label"])
+            rows = parse_factsheet(raw_payload, fund=fund, period_label=label)
         except FactsheetFormatUnknown as exc:
             # Deliberately not re-raised: the run must keep the fetched document
             # rather than roll it back, since that document is what unblocks the

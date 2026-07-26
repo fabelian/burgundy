@@ -27,10 +27,17 @@ CREATE TABLE IF NOT EXISTS funds (
   mandate        TEXT NOT NULL,          -- international | global | emerging | other
   series         TEXT,                   -- 'Series A' etc; series differ in fees, not holdings
   currency       TEXT NOT NULL DEFAULT 'CAD',
-  -- Fact sheets are published per period at a templated URL. Kept as a
-  -- template ({yyyy}/{yy}/{q}/{mm}) rather than a single URL so one row
-  -- describes every period of the fund rather than only the latest.
+  -- Managers publish fact sheets in one of two shapes, and a fund may offer
+  -- both, so both are stored:
+  --
+  --   doc_url_template  the period is *in* the path ({yyyy}/{yy}/{q}/{mm}).
+  --                     Expanding it reaches past quarters, which is the only
+  --                     way to build a trend rather than a single point.
+  --   doc_url           one address whose contents are replaced each period.
+  --                     Only ever the latest, and it must be re-read every
+  --                     time — see the collector's dedup note.
   doc_url_template TEXT,
+  doc_url        TEXT,
   cadence        TEXT NOT NULL DEFAULT 'quarterly',  -- quarterly | monthly
   is_active      BOOLEAN NOT NULL DEFAULT TRUE,
   sort_order     INT NOT NULL DEFAULT 100,

@@ -109,13 +109,26 @@ FUNDS = [
         "slug": "international-equity",
         "name": "Mawer International Equity Fund",
         "mandate": "international",
-        "series": "Series A",
+        "series": "Series F",
         "currency": "CAD",
-        # Confirmed form: the 2Q24 sheet at this path is where Samsung
-        # Electronics at 1.7% was read (docs/korea-holdings.md).
+        # Two shapes, both kept: series differ in fees, not in holdings, so
+        # either document answers the Korean question.
+        #
+        # The per-quarter path is where Samsung Electronics at 1.7% was read
+        # (docs/korea-holdings.md). Mawer has since moved its assets behind a
+        # CDN, so this may no longer resolve — it is left in because it is the
+        # only route to *past* quarters, and a 404 costs one request.
         "doc_url_template": (
             "https://www.mawer.com/mawer-com-cms/assets/funds/"
             "{q}q{yy}-mawer-international-equity-fund-series-a.pdf"
+        ),
+        # The current CDN asset. Carries no period: the contents are replaced
+        # each quarter, so this is always the latest sheet and never a
+        # historical one.
+        "doc_url": (
+            "https://az-prd-mawer-com-cms-bda9ehd8a2fqgdgn.a02.azurefd.net/"
+            "mawer-com-cms/assets/"
+            "Mawer_International_Equity_Fund_Series_F_24a4cbc644.pdf"
         ),
         "cadence": "quarterly",
         "sort_order": 0,

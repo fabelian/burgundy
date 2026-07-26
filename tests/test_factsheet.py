@@ -188,6 +188,58 @@ def test_discovery_covers_every_fund_period_pair(monkeypatch):
                for t in targets)
 
 
+# ---- the two URL shapes --------------------------------------------------
+
+LATEST_ONLY_FUND = {"id": 2, "slug": "intl-cdn", "cadence": "quarterly",
+                    "doc_url_template": None,
+                    "doc_url": "https://cdn.example.com/assets/Intl_Equity.pdf"}
+
+
+def test_a_latest_only_url_is_never_marked_as_seen(monkeypatch):
+    """Mawer's CDN asset has no period in its path — the contents are replaced
+    each quarter. Keyed by an external_id, the first fetch would mark it seen
+    and every later quarter would be skipped forever; with none, dedup falls to
+    the content hash and a new edition is picked up."""
+    collector = FactsheetCollector({"id": 1, "slug": "mawer"})
+    monkeypatch.setattr(FactsheetCollector, "_funds",
+                        lambda self: [LATEST_ONLY_FUND])
+
+    targets = collector.discover()
+
+    assert len(targets) == 1
+    assert targets[0].external_id is None
+    assert targets[0].meta["period"] is None
+
+
+def test_a_fund_offering_both_shapes_yields_both(monkeypatch):
+    """The template reaches past quarters, the fixed URL the current one;
+    neither alone gives a trend ending at today."""
+    both = {**FUND, "doc_url": "https://cdn.example.com/assets/Intl_Equity.pdf"}
+    collector = FactsheetCollector({"id": 1, "slug": "mawer"})
+    monkeypatch.setattr(FactsheetCollector, "_funds", lambda self: [both])
+
+    targets = collector.discover()
+
+    assert sum(1 for t in targets if t.external_id is None) == 1
+    assert sum(1 for t in targets if t.external_id is not None) > 1
+
+
+def test_a_latest_only_document_is_not_labelled_with_a_guessed_quarter(db,
+                                                                       manager):
+    """Its as-of date comes from inside the document; inferring one from
+    today's date would file the sheet under a quarter it does not cover."""
+    collector = FactsheetCollector({"id": manager, "slug": "mawer"})
+    target = type("T", (), {"meta": {"fund": LATEST_ONLY_FUND,
+                                     "period": None}})()
+
+    with pytest.raises(FactsheetFormatUnknown) as exc:
+        parse_factsheet(encode_payload(_blank_pdf()), fund=LATEST_ONLY_FUND,
+                        period_label="latest")
+    assert "period=latest" in str(exc.value)
+    assert collector.persist(db, None, encode_payload(_blank_pdf()),
+                             target) == 0
+
+
 def test_a_manager_with_no_tracked_fund_is_skipped(monkeypatch):
     collector = FactsheetCollector({"id": 1, "slug": "burgundy"})
     monkeypatch.setattr(FactsheetCollector, "_funds", lambda self: [])
