@@ -16,10 +16,20 @@ later**. Everything below about ruled-out sources was reasoned against the Canad
 the two US advisers change some of those answers, and that is set out in
 "US-domiciled managers" below.
 
-Neither new manager's identifiers have been confirmed yet, so both are registered with a
-name and nothing else. Every collector skips them until a CIK or CRD is read off that
-filer's own documents — the same rule the original five follow, and the reason a wrong
-CIK has never put another firm's portfolio on this dashboard.
+**DRZ is DePrince, Race & Zollo (Winter Park, FL); Kopernik is Kopernik Global Investors
+(Tampa, FL)** — both confirmed. Firm identity and filing identifiers are separate facts,
+though, and only the first is settled: there is no name-to-CIK resolution anywhere in this
+repo, so `Edgar13FCollector.applies()` still wants the number itself. **CIK, CRD and the
+website URLs stay blank**, and EDGAR, Form ADV and the website scrapes skip both managers
+until each is read off that filer's own documents. A blank shows on the collector panel as
+"not configured"; a wrong CIK shows another firm's portfolio and looks entirely normal.
+
+What the confirmation *did* unlock is the DART safety net. A deep-value manager running an
+EM strategy is a far likelier 5% filer in a Korean small cap than the large-cap-oriented
+Canadians, so `dart_terms` are armed for both. English spellings only — DART sometimes
+renders a foreign reporter in Hangul (Burgundy carries both) but the transliteration is
+not guessable. `DRZ` is deliberately *not* a term: three letters match inside unrelated
+reporter names, and `ANDRZEJ HOLDINGS` would have been filed as DRZ's stake.
 
 ## The measurement ceiling
 
