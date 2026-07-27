@@ -23,8 +23,8 @@ def sync_from_config(conn) -> int:
             """
             INSERT INTO managers (slug, name, legal_name, cik, crd,
                                   website_aum_url, website_team_url,
-                                  dart_terms, sort_order)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                                  dart_terms, is_active, sort_order)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT (slug) DO UPDATE SET
                 name             = EXCLUDED.name,
                 legal_name       = EXCLUDED.legal_name,
@@ -32,6 +32,12 @@ def sync_from_config(conn) -> int:
                 website_aum_url  = COALESCE(EXCLUDED.website_aum_url, managers.website_aum_url),
                 website_team_url = COALESCE(EXCLUDED.website_team_url, managers.website_team_url),
                 dart_terms       = EXCLUDED.dart_terms,
+                -- Not COALESCEd: retiring a manager has to take effect, and a
+                -- flag that only ever turns on could not do it. This is the one
+                -- switch that both stops outbound collection (pipeline.run
+                -- iterates active()) and removes the manager from the dashboard
+                -- (every tab resolves through it), so config must own it.
+                is_active        = EXCLUDED.is_active,
                 sort_order       = EXCLUDED.sort_order,
                 -- config is authoritative: a CIK corrected there must take
                 -- effect, or a manager pointed at the wrong filer could never
@@ -41,7 +47,8 @@ def sync_from_config(conn) -> int:
             """,
             (m["slug"], m["name"], m.get("legal_name"), m.get("cik"),
              m.get("crd"), m.get("website_aum_url"), m.get("website_team_url"),
-             m.get("dart_terms") or [], m.get("sort_order", 100)),
+             m.get("dart_terms") or [], m.get("is_active", True),
+             m.get("sort_order", 100)),
         ).fetchone()
         if res:
             written += 1

@@ -127,15 +127,79 @@ def test_no_dart_term_is_short_enough_to_match_by_accident():
                 assert len(term) >= 5, f"{m['slug']}: {term!r} is too short"
 
 
-def test_the_confirmed_managers_still_collect(db):
-    """The blanks must not have loosened anything for the managers whose
-    identifiers *were* read off their own filings."""
-    managers.sync_from_config(db)
-    tracked = {m["slug"]: m for m in managers.active(db)}
+# ---- retiring a manager --------------------------------------------------
 
-    for slug in ("burgundy", "mawer", "edgepoint", "beutel-goodman",
-                 "letko-brosseau"):
-        assert Edgar13FCollector(tracked[slug]).applies() is True, slug
+_RETIRED = ("mawer", "edgepoint", "beutel-goodman", "letko-brosseau")
+
+
+def test_a_retired_manager_is_neither_collected_nor_served(db):
+    """One flag has to do both jobs. pipeline.run iterates active(), and every
+    dashboard tab resolves through it, so is_active=False stops outbound
+    collection *and* takes the manager off the web app."""
+    managers.sync_from_config(db)
+    live = {m["slug"] for m in managers.active(db)}
+
+    assert live == {"burgundy", "drz", "kopernik"}
+    for slug in _RETIRED:
+        assert slug not in live, slug
+
+
+def test_a_retired_manager_cannot_be_reached_by_url(db):
+    """The picker hiding them is not enough — a hand-typed ?manager= slug must
+    not serve their data either."""
+    from dashboard import queries
+
+    managers.sync_from_config(db)
+    db.commit()  # queries.* open their own connection
+
+    for slug in _RETIRED:
+        resolved = queries.manager_by_slug(slug)
+        assert resolved is not None, "an unknown slug still falls back"
+        assert resolved["slug"] != slug, f"{slug} was served directly"
+
+    assert {m["slug"] for m in queries.manager_list()} == {
+        "burgundy", "drz", "kopernik"}
+
+
+def test_retiring_keeps_the_data_it_collected(db):
+    """Deactivation is reversible; that is the whole reason to prefer it over
+    deleting. The rows have to still be there."""
+    managers.sync_from_config(db)
+    row = db.execute(
+        "SELECT id FROM managers WHERE slug = 'mawer'").fetchone()
+    assert row is not None, "the manager row survives deactivation"
+
+
+def test_config_can_switch_a_manager_back_on(db, monkeypatch):
+    """is_active is deliberately not COALESCEd on upsert: a flag that only ever
+    turns on could never retire anyone, and one that only ever turns off could
+    never bring them back."""
+    managers.sync_from_config(db)
+    assert "mawer" not in {m["slug"] for m in managers.active(db)}
+
+    revived = [{**m, "is_active": True} if m["slug"] == "mawer" else m
+               for m in config.MANAGERS]
+    monkeypatch.setattr(config, "MANAGERS", revived)
+    managers.sync_from_config(db)
+
+    assert "mawer" in {m["slug"] for m in managers.active(db)}
+
+
+def test_a_manager_with_no_is_active_key_defaults_to_tracked():
+    """Every entry predating the flag must keep collecting."""
+    assert config.MANAGERS[0].get("is_active", True) is True
+
+
+def test_every_tracked_manager_with_a_cik_still_collects(db):
+    """The blanks and the retirements must not have loosened anything for the
+    managers that are still tracked and do have identifiers."""
+    managers.sync_from_config(db)
+    tracked = managers.active(db)
+
+    assert tracked, "something is tracked"
+    for m in tracked:
+        if m["cik"]:
+            assert Edgar13FCollector(m).applies() is True, m["slug"]
 
 
 def test_every_manager_has_a_unique_slug_and_sort_order():

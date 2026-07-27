@@ -10,11 +10,26 @@ otherwise:
 - **Large caps specifically.** A source that only surfaces small caps is worthless here.
 - **Freshness.** Near-real-time preferred; annual disclosure is too slow to act on.
 
-The tracked set is `config.MANAGERS`. It began as five Canadian managers — Burgundy,
-Mawer, EdgePoint, Beutel Goodman, Letko Brosseau — and **DRZ and Kopernik were added
-later**. Everything below about ruled-out sources was reasoned against the Canadian five;
-the two US advisers change some of those answers, and that is set out in
-"US-domiciled managers" below.
+The tracked set is `config.MANAGERS`. It began as five Canadian managers, then DRZ and
+Kopernik were added, and **Mawer, EdgePoint, Beutel Goodman and Letko Brosseau have since
+been retired** — `is_active=False`. Currently tracked: **Burgundy, DRZ, Kopernik.**
+
+Retiring is one flag doing two jobs: `pipeline.run` iterates `managers.active()`, and
+every dashboard tab resolves through it, so the flag stops all outbound collection *and*
+takes the manager off the web app — a hand-typed `?manager=mawer` falls back rather than
+serving their data. Nothing collected is deleted, so flipping it back restores the manager
+with its history; and naming one explicitly in a backfill still works, since that is an
+operator decision rather than automatic collection.
+
+> **The retirement took the Korean data with it.** Mawer was the only manager with a
+> registered fund, so the calibrated fact sheet — SK hynix 3.0%, Samsung Electronics 2.8%
+> — is no longer reachable from the tab. Everything below still describes how that
+> pipeline works and it still passes its tests against the checked-in fixture; it simply
+> has no active manager feeding it until a fund is registered for Burgundy, DRZ or
+> Kopernik. Re-activating Mawer alone would bring it straight back.
+
+Everything below about ruled-out sources was reasoned against the Canadian five; the two
+US advisers change some of those answers, and that is set out in "US-domiciled managers".
 
 **DRZ is DePrince, Race & Zollo (Winter Park, FL), CIK `0001008894`; Kopernik is Kopernik
 Global Investors (Tampa, FL), CIK `0001599814`.** Both now collect from EDGAR. Identifiers

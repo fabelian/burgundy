@@ -42,6 +42,13 @@ MANAGERS = [
     },
     # CIKs below are each confirmed from that filer's own sec.gov/Archives
     # 13F-HR documents, not inferred from a name search.
+    #
+    # The four Canadian managers below are DEACTIVATED. is_active=False takes a
+    # manager out of managers.active(), which is what pipeline.run iterates and
+    # what the dashboard's picker and every tab resolve against — so one flag
+    # both stops all outbound collection for them and removes them from the web
+    # app. Nothing already collected is deleted; flipping this back to True
+    # restores them with their history intact.
     {
         "slug": "mawer",
         "name": "Mawer Investment Management",
@@ -50,6 +57,7 @@ MANAGERS = [
         "crd": "159100",
         "website_aum_url": "https://www.mawer.com/",
         "website_team_url": "https://www.mawer.com/about/team",
+        "is_active": False,
         "sort_order": 10,
     },
     {
@@ -60,6 +68,7 @@ MANAGERS = [
         "crd": "312152",
         "website_aum_url": "https://www.edgepointwealth.com/",
         "website_team_url": "https://www.edgepointwealth.com/your-team/",
+        "is_active": False,
         "sort_order": 20,
     },
     {
@@ -70,6 +79,7 @@ MANAGERS = [
         "crd": "135829",
         "website_aum_url": "https://www.beutelgoodman.com/",
         "website_team_url": "https://www.beutelgoodman.com/team/",
+        "is_active": False,
         "sort_order": 30,
     },
     {
@@ -80,6 +90,7 @@ MANAGERS = [
         "crd": "133221",
         "website_aum_url": "https://www.lba.ca/",
         "website_team_url": "https://www.lba.ca/teams/",
+        "is_active": False,
         "sort_order": 40,
     },
     # --- US-domiciled advisers -------------------------------------------
