@@ -66,10 +66,15 @@ def test_dashboard_queries_never_leak_across_managers(db, manager, other_manager
 
 
 def test_config_managers_are_registered_with_distinct_ciks(db):
+    """Over *every* registered manager, not just the active ones: a CIK
+    collision with a retired manager is still a collision, and the table's
+    UNIQUE (cik) would reject the sync outright."""
+    import config
+
     managers.sync_from_config(db)
-    rows = managers.active(db)
+    rows = db.execute("SELECT slug, cik FROM managers").fetchall()
     slugs = [m["slug"] for m in rows]
-    assert "burgundy" in slugs and len(rows) >= 5
+    assert "burgundy" in slugs and len(rows) == len(config.MANAGERS)
 
     ciks = [m["cik"] for m in rows if m["cik"]]
     assert len(ciks) == len(set(ciks)), "a CIK identifies one filer only"

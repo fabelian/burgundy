@@ -38,21 +38,47 @@ def fake(monkeypatch, db):
     return _FakeCollector
 
 
-def test_backfills_every_manager_by_default(fake):
+def test_backfills_every_tracked_manager_by_default(fake):
+    """Every *tracked* manager — derived from config rather than counted, so
+    retiring one does not quietly turn this into a weaker assertion."""
+    import config
+
     backfill.main()
+
     slugs = [c["slug"] for c in fake.calls]
-    assert "burgundy" in slugs and "mawer" in slugs
-    assert len(slugs) == len(set(slugs)) >= 5
+    expected = {m["slug"] for m in config.MANAGERS if m.get("is_active", True)}
+    assert set(slugs) == expected
+    assert len(slugs) == len(set(slugs)), "no manager is backfilled twice"
+
+
+def test_a_retired_manager_is_not_swept_up_by_the_default_backfill(fake):
+    """Retiring stops automatic work of every kind, backfill included."""
+    import config
+
+    backfill.main()
+
+    slugs = {c["slug"] for c in fake.calls}
+    for m in config.MANAGERS:
+        if not m.get("is_active", True):
+            assert m["slug"] not in slugs, m["slug"]
+
+
+def test_a_retired_manager_can_still_be_backfilled_on_purpose(fake, monkeypatch):
+    """Naming one explicitly is an operator decision, not automatic collection,
+    and re-running history for a retired manager is a legitimate one-off."""
+    monkeypatch.setenv("BACKFILL_MANAGER", "mawer")
+    backfill.main()
+    assert [c["slug"] for c in fake.calls] == ["mawer"]
 
 
 def test_environment_selects_a_single_manager(fake, monkeypatch):
-    monkeypatch.setenv("BACKFILL_MANAGER", "mawer")
+    monkeypatch.setenv("BACKFILL_MANAGER", "burgundy")
     monkeypatch.setenv("BACKFILL_SINCE", "2018")
     monkeypatch.setenv("BACKFILL_LIMIT", "5")
 
     backfill.main()
 
-    assert [c["slug"] for c in fake.calls] == ["mawer"]
+    assert [c["slug"] for c in fake.calls] == ["burgundy"]
     assert fake.calls[0]["since"].year == 2018
     assert fake.calls[0]["limit"] == 5
 
@@ -65,7 +91,10 @@ def test_blank_environment_values_fall_back_to_defaults(fake, monkeypatch):
 
     backfill.main()
 
-    assert len(fake.calls) >= 5
+    import config
+
+    assert len(fake.calls) == sum(
+        1 for m in config.MANAGERS if m.get("is_active", True))
     assert fake.calls[0]["since"].year == 2013
     assert fake.calls[0]["limit"] is None
 
@@ -79,12 +108,12 @@ def test_unknown_manager_fails_loudly(fake, monkeypatch):
 
 
 def test_one_manager_crashing_does_not_stop_the_others(fake, monkeypatch):
-    fake.fail_for = {"mawer"}
+    fake.fail_for = {"kopernik"}
     with pytest.raises(SystemExit) as exc:
         backfill.main()
     assert exc.value.code == 1, "a failed manager must not report success"
     slugs = [c["slug"] for c in fake.calls]
-    assert "burgundy" in slugs and len(slugs) >= 5, "others still ran"
+    assert "burgundy" in slugs and "drz" in slugs, "others still ran"
 
 
 def test_the_korean_sweep_will_not_start_itself(monkeypatch, db):
