@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>담당 운용사 보유종목 추적 — CRM 세미나</title>
+<style>
+/* ─────────────────────────────────────────────────────────────
+   Tokens — extends the tracker dashboard's own palette so the
+   deck reads as part of the same product.
+   ───────────────────────────────────────────────────────────── */
+:root{
+  --wine:#6b1f2a; --wine-2:#a23b47; --ochre:#c98b4b; --teal:#4b7d8a;
+  --paper:#faf8f6; --card:#ffffff; --ink:#2a2320; --ink-soft:#5c514c;
+  --line:#e6ddd6; --muted:#8a7f78; --rule:#d8ccc4;
+  --good:#1a7d43; --warn:#9a6b12;
+  --sans:system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",Segoe UI,Roboto,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --wine:#d98a97; --wine-2:#e0a3ad; --ochre:#e0ac72; --teal:#7fb3c0;
+    --paper:#16110f; --card:#1e1815; --ink:#f0e9e4; --ink-soft:#c4b8b1;
+    --line:#3a2f2b; --muted:#9a8d86; --rule:#4a3d38;
+    --good:#5fbe86; --warn:#e0bb6a;
+  }
+}
+:root[data-theme="dark"]{
+  --wine:#d98a97; --wine-2:#e0a3ad; --ochre:#e0ac72; --teal:#7fb3c0;
+  --paper:#16110f; --card:#1e1815; --ink:#f0e9e4; --ink-soft:#c4b8b1;
+  --line:#3a2f2b; --muted:#9a8d86; --rule:#4a3d38;
+  --good:#5fbe86; --warn:#e0bb6a;
+}
+:root[data-theme="light"]{
+  --wine:#6b1f2a; --wine-2:#a23b47; --ochre:#c98b4b; --teal:#4b7d8a;
+  --paper:#faf8f6; --card:#ffffff; --ink:#2a2320; --ink-soft:#5c514c;
+  --line:#e6ddd6; --muted:#8a7f78; --rule:#d8ccc4;
+  --good:#1a7d43; --warn:#9a6b12;
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  background:var(--paper); color:var(--ink); font-family:var(--sans);
+  -webkit-font-smoothing:antialiased; overflow:hidden;
+  line-height:1.6; word-break:keep-all;
+}
+
+/* ── Progress rail ─────────────────────────────────────────── */
+#rail{position:fixed; top:0; left:0; right:0; height:3px; background:var(--line); z-index:50;}
+#rail>i{display:block; height:100%; width:0; background:var(--wine); transition:width .35s cubic-bezier(.4,0,.2,1);}
+
+/* ── Slide shell ───────────────────────────────────────────── */
+.deck{height:100%; position:relative;}
+.slide{
+  position:absolute; inset:0; display:none;
+  padding:clamp(28px,5vh,64px) clamp(20px,6vw,80px) clamp(64px,9vh,88px);
+  overflow-y:auto; overflow-x:hidden;
+}
+.slide.on{display:flex; flex-direction:column; justify-content:center;}
+.inner{width:100%; max-width:940px; margin:0 auto; display:flex; flex-direction:column; gap:clamp(14px,2.2vh,26px);}
+
+/* ── Type scale ────────────────────────────────────────────── */
+.eyebrow{
+  font-family:var(--mono); font-size:clamp(10px,1.15vw,12px); letter-spacing:.16em;
+  text-transform:uppercase; color:var(--wine); font-weight:600;
+  display:flex; align-items:center; gap:10px;
+}
+.eyebrow::after{content:""; flex:1; height:1px; background:var(--rule);}
+h1{
+  font-size:clamp(30px,5.4vw,62px); line-height:1.14; margin:0; font-weight:800;
+  letter-spacing:-.022em; text-wrap:balance;
+}
+h2{
+  font-size:clamp(24px,3.8vw,44px); line-height:1.2; margin:0; font-weight:750;
+  letter-spacing:-.018em; text-wrap:balance;
+}
+h3{font-size:clamp(17px,2vw,23px); margin:0; font-weight:700; letter-spacing:-.01em;}
+p{margin:0; font-size:clamp(15px,1.65vw,20px); color:var(--ink-soft); max-width:66ch;}
+p strong,li strong{color:var(--ink); font-weight:700;}
+.lede{font-size:clamp(17px,2vw,24px); color:var(--ink-soft);}
+.tiny{font-size:clamp(12px,1.2vw,14px); color:var(--muted); max-width:70ch;}
+code,.m{font-family:var(--mono); font-size:.88em; font-variant-numeric:tabular-nums;}
+code{background:color-mix(in srgb,var(--wine) 9%,transparent); color:var(--wine);
+     padding:.12em .4em; border-radius:4px;}
+
+/* ── Cards / grid ──────────────────────────────────────────── */
+.grid{display:grid; gap:clamp(12px,1.6vw,20px);}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr));}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr));}
+@media (max-width:760px){.g2,.g3{grid-template-columns:1fr;}}
+.card{
+  background:var(--card); border:1px solid var(--line); border-radius:12px;
+  padding:clamp(16px,2.2vw,26px); display:flex; flex-direction:column; gap:9px;
+}
+.card h3{color:var(--wine);}
+.card p{font-size:clamp(13px,1.4vw,16px);}
+.card .num{font-family:var(--mono); font-size:11px; letter-spacing:.14em; color:var(--muted);}
+
+/* ── Data rows ─────────────────────────────────────────────── */
+.rows{display:flex; flex-direction:column; border-top:1px solid var(--rule);}
+.row{
+  display:flex; justify-content:space-between; align-items:baseline; gap:16px;
+  padding:clamp(9px,1.5vh,15px) 2px; border-bottom:1px solid var(--line);
+}
+.row .k{font-size:clamp(14px,1.5vw,18px); font-weight:600;}
+.row .v{font-family:var(--mono); font-variant-numeric:tabular-nums;
+        font-size:clamp(14px,1.6vw,19px); color:var(--wine); font-weight:600; white-space:nowrap;}
+.row .v.dim{color:var(--muted); font-weight:400;}
+
+/* ── Callout ───────────────────────────────────────────────── */
+.callout{
+  border-left:3px solid var(--wine); background:color-mix(in srgb,var(--wine) 6%,transparent);
+  padding:clamp(14px,2vw,22px) clamp(16px,2.4vw,26px); border-radius:0 10px 10px 0;
+  display:flex; flex-direction:column; gap:8px;
+}
+.callout.warn{border-left-color:var(--ochre); background:color-mix(in srgb,var(--ochre) 10%,transparent);}
+.callout.warn h3{color:var(--warn);}
+.callout h3{color:var(--wine);}
+
+/* ── Yes / No pair ─────────────────────────────────────────── */
+.verdict{display:grid; gap:12px;}
+.verdict>div{display:flex; gap:13px; align-items:flex-start; padding:clamp(12px,1.8vw,18px);
+             border-radius:10px; border:1px solid var(--line); background:var(--card);}
+.verdict .mark{
+  font-family:var(--mono); font-weight:800; font-size:clamp(17px,2vw,24px); flex:none;
+  line-height:1.25; width:1.5em; height:1.5em; border-radius:50%;
+  display:grid; place-items:center;
+}
+.verdict .yes .mark{color:var(--good); background:color-mix(in srgb,var(--good) 14%,transparent);}
+.verdict .no .mark{color:var(--wine-2); background:color-mix(in srgb,var(--wine) 16%,transparent);}
+.verdict .yes{border-color:color-mix(in srgb,var(--good) 30%,var(--line));}
+.verdict .no{border-color:color-mix(in srgb,var(--wine) 40%,var(--line));
+             background:color-mix(in srgb,var(--wine) 4%,var(--card));}
+.verdict b{display:block; font-size:clamp(15px,1.7vw,20px); margin-bottom:3px;}
+.verdict span.d{font-size:clamp(13px,1.4vw,16px); color:var(--ink-soft);}
+
+/* ── The 72-block visibility figure (the one bold moment) ──── */
+#blocks{display:grid; grid-template-columns:repeat(24,1fr); gap:clamp(3px,.5vw,6px); margin:2px 0;}
+#blocks i{aspect-ratio:1; border-radius:2px; display:block;}
+#blocks i.seen{background:var(--wine);}
+#blocks i.hidden{border:1px solid var(--rule); background:transparent;}
+@media (max-width:640px){#blocks{grid-template-columns:repeat(12,1fr);}}
+.legend{display:flex; gap:clamp(14px,3vw,30px); flex-wrap:wrap; font-size:clamp(12px,1.35vw,15px);}
+.legend span{display:flex; align-items:center; gap:8px; color:var(--ink-soft);}
+.legend b.sw{width:13px; height:13px; border-radius:3px; flex:none;}
+.legend b.sw.seen{background:var(--wine);}
+.legend b.sw.hidden{border:1px solid var(--rule);}
+
+/* ── Flow diagram ──────────────────────────────────────────── */
+.flow{display:flex; align-items:stretch; gap:clamp(6px,1.2vw,14px); flex-wrap:wrap;}
+.flow .step{
+  flex:1 1 150px; background:var(--card); border:1px solid var(--line); border-radius:11px;
+  padding:clamp(12px,1.7vw,20px); display:flex; flex-direction:column; gap:6px;
+}
+.flow .step b{font-size:clamp(14px,1.5vw,18px);}
+.flow .step span{font-size:clamp(12px,1.3vw,15px); color:var(--ink-soft);}
+.flow .arrow{display:flex; align-items:center; color:var(--rule); font-size:22px; flex:none;}
+@media (max-width:760px){.flow .arrow{transform:rotate(90deg); justify-content:center; width:100%;}}
+
+/* ── Table ─────────────────────────────────────────────────── */
+.tw{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+table{border-collapse:collapse; width:100%; min-width:520px; font-size:clamp(13px,1.4vw,17px);}
+th,td{text-align:left; padding:clamp(8px,1.3vh,13px) 12px; border-bottom:1px solid var(--line);}
+th{font-family:var(--mono); font-size:clamp(10px,1.1vw,12px); letter-spacing:.1em; text-transform:uppercase;
+   color:var(--muted); font-weight:600; border-bottom:1px solid var(--rule);}
+td.n{font-family:var(--mono); font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap;}
+td strong{color:var(--wine);}
+.pill{display:inline-block; font-family:var(--mono); font-size:.82em; padding:.2em .6em;
+      border-radius:99px; background:color-mix(in srgb,var(--wine) 12%,transparent); color:var(--wine); white-space:nowrap;}
+.pill.o{background:color-mix(in srgb,var(--ochre) 18%,transparent); color:var(--warn);}
+.pill.t{background:color-mix(in srgb,var(--teal) 16%,transparent); color:var(--teal);}
+
+/* ── Footer ────────────────────────────────────────────────── */
+#foot{
+  position:fixed; left:0; right:0; bottom:0; z-index:40;
+  display:flex; justify-content:space-between; align-items:center; gap:12px;
+  padding:12px clamp(16px,6vw,80px); font-family:var(--mono); font-size:12px;
+  color:var(--muted); background:linear-gradient(transparent,var(--paper) 55%);
+  pointer-events:none;
+}
+#foot .sec{letter-spacing:.1em; text-transform:uppercase;}
+#foot .nav{display:flex; gap:6px; pointer-events:auto;}
+#foot button{
+  font-family:var(--mono); font-size:12px; color:var(--muted); background:var(--card);
+  border:1px solid var(--line); border-radius:7px; padding:5px 11px; cursor:pointer;
+}
+#foot button:hover{color:var(--wine); border-color:var(--wine);}
+#foot button:focus-visible{outline:2px solid var(--wine); outline-offset:2px;}
+/* Hidden by default so deep-linking to a slide never flashes it. */
+.hint{position:fixed; bottom:52px; left:50%; transform:translateX(-50%); z-index:41;
+      font-family:var(--mono); font-size:11px; color:var(--muted); opacity:0;
+      transition:opacity .5s; pointer-events:none;}
+.hint.on{opacity:.85;}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important;}}
+
+/* ── Print: every slide, stacked ───────────────────────────── */
+@media print{
+  body{overflow:visible;}
+  #rail,#foot,.hint{display:none;}
+  .slide{position:static; display:flex!important; page-break-after:always;
+         min-height:auto; padding:26px 0; border-bottom:1px solid #ccc;}
+}
+</style>
+</head>
+<body>
+
+<div id="rail"><i></i></div>
+
+<div class="deck" id="deck">
+
+  <!-- 1 ─────────────────────────────────────────────── -->
+  <section class="slide" data-sec="시작">
+    <div class="inner">
+      <div class="eyebrow">CRM 세미나 · 2026</div>
+      <h1>담당 운용사가<br>무슨 주식을 갖고 있는지<br>매일 자동으로 보기</h1>
+      <p class="lede">흩어진 공개 자료를 모아서 한 화면에 띄우는 프로그램을 만들었습니다.<br>
+        어떻게 만들었고, 어떻게 읽어야 하는지 설명드립니다.</p>
+      <p class="tiny">→ 방향키 · 클릭 · 스와이프로 넘깁니다</p>
+    </div>
+  </section>
+
+  <!-- 2 ─────────────────────────────────────────────── -->
+  <section class="slide" data-sec="시작">
+    <div class="inner">
+      <div class="eyebrow">오늘 다룰 것</div>
+      <h2>다섯 부분입니다</h2>
+      <div class="rows">
+        <div class="row"><span class="k">1 &nbsp;&nbsp;우리가 풀려는 문제</span><span class="v dim">왜 필요한가</span></div>
+        <div class="row"><span class="k">2 &nbsp;&nbsp;도구 세 가지</span><span class="v dim">GitHub · Claude Code · Railway</span></div>
+        <div class="row"><span class="k">3 &nbsp;&nbsp;어떻게 만들었나</span><span class="v dim">자료 수집 구조</span></div>
+        <div class="row"><span class="k">4 &nbsp;&nbsp;화면 읽는 법</span><span class="v dim">실무</span></div>
+        <div class="row"><span class="k">5 &nbsp;&nbsp;꼭 알아야 할 한 가지</span><span class="v">가장 중요</span></div>
+      </div>
+      <p class="tiny">기술 배경 지식은 필요 없습니다. 5번을 모르고 쓰면 영업 판단이 틀어질 수 있어서, 그 하나만 확실히 남기는 게 오늘 목표입니다.</p>
+    </div>
+  </section>
+
+  <!-- 3 ─────────────────────────────────────────────── -->
+  <section class="slide" data-sec="1 · 문제">
+    <div class="inner">
+      <div class="eyebrow">Part 1 · 우리가 풀려는 문제</div>
+      <h2>“이 운용사, 삼성전자 갖고 있나요?”</h2>
+      <p class="lede">CRM 담당자라면 늘 받는 질문입니다. 그런데 답하려면 매번 사람이 찾아봐야 했습니다.</p>
+      <div class="grid g3">
+        <div class="card"><h3>어디에</h3><p>미국·한국·캐나다 기관에 자료가 흩어져 있습니다.</p></div>
+        <div class="card"><h3>어떤 형식으로</h3><p>PDF, 엑셀, 웹페이지 — 기관마다 다릅니다.</p></div>
+        <div class="card"><h3>언제</h3><p>분기·반기·연 단위로 제각각 나옵니다.</p></div>
+      </div>
+      <p>한 번 찾는 것도 일이지만, 더 큰 문제는 <strong>계속 봐야 한다</strong>는 겁니다.
+        지난 분기보다 늘었는지 줄었는지가 영업에서는 더 중요하니까요.</p>
+    </div>
+  </section>
+
+  <!-- 4 ─────────────────────────────────────────────── -->
+  <section class="slide" data-sec="1 · 문제">
+    <div class="inner">
+      <div class="eyebrow">Part 1 · 함정</div>
+      <h2>한국 공시로는<br>대형주를 볼 수 없습니다</h2>
+      <p>금감원 DART에는 <strong>5% 이상 지분</strong>을 가지면 공시하는 제도가 있습니다.
+        여기를 뒤지면 될 것 같지만, 그렇지 않습니다.</p>
+      <div class="callout">
+        <h3>5%는 “발행 회사 지분율” 기준입니다</h3>
+        <p>삼성전자 지분 5%면 <strong>수십조 원</strong>입니다.
+          이 운용사들이 굴리는 돈 전체보다 큽니다. 그래서 <strong>구조적으로 절대 안 나옵니다.</strong></p>
+      </div>
+      <p>실제로 이 제도로 잡히는 건 <span class="m">오성첨단소재</span> 같은 소형주뿐이었습니다.
+        찾으려던 것과 정반대입니다.</p>
+      <p class="tiny">→ 그래서 다른 경로가 필요했습니다. 운용사가 <strong>스스로 내는 펀드 소개서(팩트시트)</strong>입니다.</p>
+    </div>
+  </section>
+
+  <!-- 5 ─────────────────────────────────────────────── -->
+  <section class="slide" data-sec="2 · 도구">
+    <div class="inner">
+      <div class="eyebrow">Part 2 · 도구 세 가지</div>
+      <h2>이름만 낯설 뿐입니다</h2>
+      <div class="grid g3">
+        <div class="card"><span class="num">01</span><h3>GitHub</h3><p>기록이 남는 <strong>공유 폴더</strong></p></div>
+        <div class="card"><span class="num">02</span><h3>Claude&nbsp;Code</h3><p>말로 시키는 <strong>개발 조수</strong></p></div>
+        <div class="card"><span class="num">03</span><h3>Railway</h3><p>24시간 켜져 있는 <strong>남의 컴퓨터</strong></p></div>
+      </div>
+      <p>하나씩 보겠습니다. 셋 다 “원래 사람이 하던 일”을 대신하는 도구입니다.</p>
+    </div>
+  </section>
+
+  <!-- 6 ─────────────────────────────────────────────── -->
+  <section class="slide" data-sec="2 · 도구">
+    <div class="inner">
+      <div class="eyebrow">01 · GitHub</div>
+      <h2>기록이 남는 공유 폴더</h2>
+      <p class="lede">파일을 넣어두는 곳인데, <strong>누가 · 언제 · 무엇을 · 왜</strong> 바꿨는지 전부 남습니다.</p>
+      <div class="grid g2">
+        <div class="card"><h3>되돌릴 수 있습니다</h3><p>잘못 고쳐도 어제 상태로 돌아갑니다. 덮어쓰기로 날아가는 일이 없습니다.</p></div>
+        <div class="card"><h3>이유가 남습니다</h3><p>“3주 전에 왜 이렇게 바꿨지?” 에 답할 수 있습니다. 바꿀 때마다 이유를 같이 적기 때문입니다.</p></div>
+      </div>
+      <div class="callout">
+        <h3>비유하자면</h3>
+        <p>회사 공유 드라이브인데 <span class="m">최종.xlsx</span> ·
+          <span class="m">최종_진짜최종.xlsx</span> ·
+          <span class="m">최종_수정본2.xlsx</span> 가 생기지 않는 버전입니다.
+          파일은 하나이고, 그 하나의 <strong>역사가 전부 붙어 있습니다.</strong></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 ─────────────────────────────────────────────── -->
+  <section class="slide" data-sec="2 · 도구">
+    <div class="inner">
+      <div class="eyebrow">02 · Claude Code</div>
+      <h2>말로 시키는 개발 조수</h2>
+      <p class="lede">한국어로 시키면 프로그램 코드를 <strong>직접 읽고, 고치고, 검사까지</strong> 합니다.</p>
+      <div class="rows">
+        <div class="row"><span class="k">사람이 말합니다</span><span class="v dim">“팩트시트에서 한국 종목만 뽑아줘”</span></div>
+        <div class="row"><span class="k">조수가 코드를 씁니다</span><span class="v dim">파일을 읽고 고침</span></div>
+        <div class="row"><span class="k">스스로 검사합니다</span><span class="v">205개 항목 통과 확인</span></div>
+        <div class="row"><span class="k">기록을 남깁니다</span><span class="v dim">GitHub에 이유와 함께 저장</span></div>
+      </div>
+      <div class="callout warn">
+        <h3>혼자 결정하지 않습니다</h3>
+        <p>바꾼 내용은 <strong>사람이 확인하고 승인</strong>해야 반영됩니다.
+          이번에도 판단이 애매한 지점에서는 “이렇게 할까요, 저렇게 할까요” 묻고 진행했습니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 ─────────────────────────────────────────────── -->
+  <section class="slide" data-sec="2 · 도구">
+    <div class="inner">
+      <div class="eyebrow">03 · Railway</div>
+      <h2>24시간 켜져 있는 컴퓨터</h2>
+      <p class="lede">내 노트북을 닫아도 프로그램이 계속 돌아야 합니다. 그 역할을 대신 해주는 서비스입니다.</p>
+      <div class="grid g2">
+        <div class="card"><h3>매일 아침 7시</h3><p>자료를 수집합니다. 사람이 아무것도 안 해도 알아서 돕니다.</p></div>
+        <div class="card"><h3>항상 켜진 웹사이트</h3><p>그 결과를 보는 화면을 띄웁니다. 주소만 알면 휴대폰으로도 볼 수 있습니다.</p></div>
+      </div>
+      <div class="callout">
+        <h3>비유하자면</h3>
+        <p>사무실에 컴퓨터 한 대를 두고 <strong>절대 안 끄는 것</strong>과 같습니다.
+          다만 그 컴퓨터를 우리가 사거나 관리하지 않고 빌려 씁니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 ─────────────────────────────────────────────── -->
+  <section class="slide" data-sec="2 · 도구">
+    <div class="inner">
+      <div class="eyebrow">셋이 맞물리는 방식</div>
+      <h2>사람 → 조수 → 보관 → 실행</h2>
+      <div class="flow">
+        <div class="step"><b>사람</b><span>한국어로 지시하고, 결과를 승인합니다</span></div>
+        <div class="arrow">→</div>
+        <div class="step"><b>Claude Code</b><span>코드를 고치고 스스로 검사합니다</span></div>
+        <div class="arrow">→</div>
+        <div class="step"><b>GitHub</b><span>바뀐 내용과 이유를 보관합니다</span></div>
+        <div class="arrow">→</div>
+        <div class="step"><b>Railway</b><span>매일 실행하고 화면을 띄웁니다</span></div>
+      </div>
+      <p>이 세미나 자료도 같은 흐름으로 만들어졌습니다.
+        지시 → 작성 → 검사 → 보관 → 배포까지 전부요.</p>
+    </div>
+  </section>
+
+  <!-- 10 ────────────────────────────────────────────── -->
+  <section class="slide" data-sec="3 · 구조">
+    <div class="inner">
+      <div class="eyebrow">Part 3 · 어떻게 만들었나</div>
+      <h2>매일 같은 일을 반복합니다</h2>
+      <div class="flow">
+        <div class="step"><b>1 · 모으기</b><span>공시·소개서·홈페이지를 받아옵니다</span></div>
+        <div class="arrow">→</div>
+        <div class="step"><b>2 · 원본 보관</b><span>받은 파일을 그대로 저장합니다</span></div>
+        <div class="arrow">→</div>
+        <div class="step"><b>3 · 표로 정리</b><span>종목·비중·날짜를 뽑아냅니다</span></div>
+        <div class="arrow">→</div>
+        <div class="step"><b>4 · 변화 기록</b><span>지난번과 달라진 점을 남깁니다</span></div>
+      </div>
+      <div class="callout">
+        <h3>2번이 중요합니다 — 원본을 통째로 남깁니다</h3>
+        <p>나중에 “뽑아내는 방식”을 고쳤을 때, <strong>상대 회사에 다시 요청하지 않고</strong>
+          보관해둔 원본으로 다시 처리하면 됩니다. 이미 사라진 자료도 우리에겐 남아 있습니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 ────────────────────────────────────────────── -->
+  <section class="slide" data-sec="3 · 구조">
+    <div class="inner">
+      <div class="eyebrow">Part 3 · 원칙</div>
+      <h2>모르는 건 비워둡니다</h2>
+      <p class="lede">회사를 식별하는 고유번호를 모를 때, <strong>추측해서 채우지 않습니다.</strong></p>
+      <div class="verdict">
+        <div class="yes"><span class="mark">○</span><div>
+          <b>비워두면</b><span class="d">화면에 “설정 안 됨”이라고 표시됩니다. 누가 봐도 채워야 할 게 보입니다.</span></div></div>
+        <div class="no"><span class="mark">✕</span><div>
+          <b>잘못 채우면</b><span class="d">엉뚱한 회사 자료가 이 회사 이름으로 올라옵니다.
+            그런데 <strong>화면상으로는 전혀 문제가 없어 보입니다.</strong></span></div></div>
+      </div>
+      <p>비어 있는 건 언제든 채울 수 있지만, 틀린 채로 굴러간 건 알아채기가 훨씬 어렵습니다.
+        그래서 <strong>빈칸을 택했습니다.</strong></p>
+    </div>
+  </section>
+
+  <!-- 12 ────────────────────────────────────────────── -->
+  <section class="slide" data-sec="4 · 결과">
+    <div class="inner">
+      <div class="eyebrow">Part 4 · 실제 결과</div>
+      <h2>Mawer 펀드 소개서에서<br>실제로 나온 것</h2>
+      <div class="tw">
+        <table>
+          <thead><tr><th>종목</th><th>펀드</th><th class="n">비중</th><th class="n">환산 금액</th><th>기준일</th></tr></thead>
+          <tbody>
+            <tr><td><strong>SK hynix</strong></td><td>Mawer International Equity</td><td class="n">3.00%</td><td class="n">약 2,170억 원</td><td class="m">2026-06-30</td></tr>
+            <tr><td><strong>삼성전자</strong></td><td>Mawer International Equity</td><td class="n">2.80%</td><td class="n">약 2,030억 원</td><td class="m">2026-06-30</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout">
+        <h3>비중만으로는 부족합니다</h3>
+        <p>“3%”만 보면 3천만 원인지 3천억 원인지 알 수 없습니다.
+          그래서 <strong>펀드 크기를 곱한 금액</strong>을 항상 같이 보여줍니다.
+          영업에서 실제로 쓰는 숫자는 이쪽입니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 13 ────────────────────────────────────────────── -->
+  <section class="slide" data-sec="5 · 주의">
+    <div class="inner">
+      <div class="eyebrow">Part 5 · 가장 중요</div>
+      <h2>운용사는 보유 종목을<br>전부 공개하지 않습니다</h2>
+      <p class="lede">펀드 소개서에는 보통 <strong>상위 10~25개만</strong> 적혀 있습니다.
+        Mawer 펀드의 실제 숫자입니다.</p>
+      <div id="blocks" aria-hidden="true"></div>
+      <div class="legend">
+        <span><b class="sw seen"></b>소개서에 적힌 24개 — 우리가 보는 것</span>
+        <span><b class="sw hidden"></b>안 적힌 48개 — 약 3조 원어치</span>
+      </div>
+      <div class="rows">
+        <div class="row"><span class="k">펀드 전체 크기</span><span class="v">약 7조 원</span></div>
+        <div class="row"><span class="k">보이지 않는 부분</span><span class="v">41.3% · 약 3조 원</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 14 ────────────────────────────────────────────── -->
+  <section class="slide" data-sec="5 · 주의">
+    <div class="inner">
+      <div class="eyebrow">Part 5 · 읽는 법</div>
+      <h2>그래서 이렇게 읽어야 합니다</h2>
+      <div class="verdict">
+        <div class="yes"><span class="mark">○</span><div>
+          <b>“최소 이만큼은 갖고 있다”</b><span class="d">맞는 해석입니다. 확인된 하한입니다.</span></div></div>
+        <div class="no"><span class="mark">✕</span><div>
+          <b>“표에 없으니 안 갖고 있다”</b><span class="d">틀린 해석입니다. 그냥 목록 밖일 수 있습니다.</span></div></div>
+      </div>
+      <div class="callout warn">
+        <h3>시험 성적으로 비유하면</h3>
+        <p>반에서 <strong>상위 5등만 발표</strong>했을 때, 6등인 친구가 “시험을 안 봤다”는 뜻은 아닙니다.
+          발표 목록에 없을 뿐입니다.</p>
+      </div>
+      <p><strong>영업에서 이걸 틀리면 실제 고객을 그냥 지나칩니다.</strong>
+        그래서 화면 곳곳에 같은 경고를 반복해 적어뒀습니다.</p>
+    </div>
+  </section>
+
+  <!-- 15 ────────────────────────────────────────────── -->
+  <section class="slide" data-sec="5 · 주의">
+    <div class="inner">
+      <div class="eyebrow">Part 5 · 다만</div>
+      <h2>안 보이는 것의 크기는<br>알고 있습니다</h2>
+      <p class="lede">안 적힌 종목이라도 <strong>소개서에 적힌 가장 작은 종목보다 클 수는 없습니다.</strong>
+        더 컸다면 목록에 들어갔을 테니까요.</p>
+      <div class="rows">
+        <div class="row"><span class="k">적힌 것 중 가장 작은 비중</span><span class="v">1.6%</span></div>
+        <div class="row"><span class="k">금액으로</span><span class="v">약 1,160억 원</span></div>
+        <div class="row"><span class="k">그러므로 안 보이는 종목은</span><span class="v">전부 이보다 작음</span></div>
+      </div>
+      <p>즉 <strong>“1,600억 원어치를 갖고 있는데 우리가 놓쳤다”는 일은 생기지 않습니다.</strong>
+        사각지대는 있지만, 그 사각지대의 크기를 알고 있다는 뜻입니다.</p>
+    </div>
+  </section>
+
+  <!-- 16 ────────────────────────────────────────────── -->
+  <section class="slide" data-sec="4 · 결과">
+    <div class="inner">
+      <div class="eyebrow">Part 4 · 화면 읽는 법</div>
+      <h2>종목마다 “근거”가 붙습니다</h2>
+      <p>자료마다 알려주는 게 달라서, <strong>무엇으로 확인된 것인지</strong>를 같이 표시합니다.</p>
+      <div class="tw">
+        <table>
+          <thead><tr><th>표시</th><th>뜻</th><th>영업에서</th></tr></thead>
+          <tbody>
+            <tr><td><span class="pill">보유 확인 + 규모</span></td><td>두 자료 모두에 나옴</td><td>금액까지 확실합니다</td></tr>
+            <tr><td><span class="pill o">하한 미만</span></td><td>갖고 있는 건 확실하나 소개서엔 안 적힘</td><td><strong>작지만 실재하는 고객</strong></td></tr>
+            <tr><td><span class="pill t">팩트시트만</span></td><td>최근에 새로 산 종목</td><td>정상입니다</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="tiny">가운데 줄이 특히 유용합니다. 소개서만 보면 <strong>존재 자체를 모를</strong> 포지션인데,
+        의결권 행사 기록을 겹쳐 보면 드러납니다.</p>
+    </div>
+  </section>
+
+  <!-- 17 ────────────────────────────────────────────── -->
+  <section class="slide" data-sec="6 · 현황">
+    <div class="inner">
+      <div class="eyebrow">Part 6 · 현황</div>
+      <h2>지금 추적 중인 곳</h2>
+      <div class="tw">
+        <table>
+          <thead><tr><th>운용사</th><th>소재</th><th>상태</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Burgundy</strong></td><td>캐나다</td><td><span class="pill">추적 중</span></td></tr>
+            <tr><td><strong>DRZ</strong> <span class="m">DePrince, Race &amp; Zollo</span></td><td>미국 · 플로리다</td><td><span class="pill">추적 중</span></td></tr>
+            <tr><td><strong>Kopernik</strong> <span class="m">Kopernik Global Investors</span></td><td>미국 · 플로리다</td><td><span class="pill">추적 중</span></td></tr>
+            <tr><td>Mawer · EdgePoint · Beutel Goodman · Letko Brosseau</td><td>캐나다</td><td><span class="pill t">쉬는 중</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="tiny">“쉬는 중”은 삭제가 아닙니다. 모아둔 자료는 그대로 있고, 설정 한 줄이면 바로 돌아옵니다.
+        담당이 바뀌면 알려주시면 됩니다.</p>
+    </div>
+  </section>
+
+  <!-- 18 ────────────────────────────────────────────── -->
+  <section class="slide" data-sec="6 · 현황">
+    <div class="inner">
+      <div class="eyebrow">Part 6 · 다음</div>
+      <h2>도와주실 수 있는 것</h2>
+      <div class="grid g2">
+        <div class="card"><h3>펀드 소개서 주소</h3>
+          <p>담당 운용사 홈페이지에서 International · Global · Emerging Markets 펀드의
+            소개서(PDF) 링크를 알려주시면 바로 수집이 시작됩니다.</p></div>
+        <div class="card"><h3>의결권 행사 기록</h3>
+          <p>같은 페이지에 있는 경우가 많습니다. 이게 있으면 <strong>소개서에 안 적힌 작은 포지션</strong>까지 보입니다.</p></div>
+      </div>
+      <div class="callout">
+        <h3>확인 중인 것 하나</h3>
+        <p>Kopernik이 미국 등록 펀드를 운용한다면, <strong>보유 종목 전체가 공개</strong>되는 서류가 따로 있습니다.
+          그러면 앞에서 본 “안 보이는 3조 원”이 그 운용사에 한해 사라집니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 19 ────────────────────────────────────────────── -->
+  <section class="slide" data-sec="정리">
+    <div class="inner">
+      <div class="eyebrow">정리</div>
+      <h2>오늘 하나만 가져가신다면</h2>
+      <div class="callout warn">
+        <h3>표에 없다고 “안 갖고 있다”가 아닙니다</h3>
+        <p>운용사는 상위 몇 개만 공개합니다. 이 화면이 말할 수 있는 건
+          <strong>“최소한 이만큼”</strong>이지 <strong>“이게 전부”</strong>가 아닙니다.</p>
+      </div>
+      <div class="rows">
+        <div class="row"><span class="k">GitHub</span><span class="v dim">기록이 남는 공유 폴더</span></div>
+        <div class="row"><span class="k">Claude Code</span><span class="v dim">말로 시키는 개발 조수</span></div>
+        <div class="row"><span class="k">Railway</span><span class="v dim">24시간 켜져 있는 컴퓨터</span></div>
+        <div class="row"><span class="k">화면에서 볼 것</span><span class="v">비중 · 환산 금액 · 근거</span></div>
+      </div>
+      <p class="lede">질문 주세요. 화면에서 이상하게 보이는 게 있으면 그것도 알려주시면 고치겠습니다.</p>
+    </div>
+  </section>
+
+</div>
+
+<div class="hint" id="hint">← → 방향키로 넘기기</div>
+
+<div id="foot">
+  <span class="sec" id="secLabel">시작</span>
+  <span class="nav">
+    <button type="button" id="prev" aria-label="이전 슬라이드">←</button>
+    <button type="button" id="next" aria-label="다음 슬라이드">→</button>
+    <button type="button" id="count" aria-label="슬라이드 번호">1 / 19</button>
+  </span>
+</div>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll(".slide"));
+  var rail   = document.querySelector("#rail>i");
+  var label  = document.getElementById("secLabel");
+  var count  = document.getElementById("count");
+  var hint   = document.getElementById("hint");
+  var i = 0;
+
+  function show(n){
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach(function(s, k){ s.classList.toggle("on", k === i); });
+    slides[i].scrollTop = 0;
+    rail.style.width = ((i + 1) / slides.length * 100) + "%";
+    label.textContent = slides[i].dataset.sec || "";
+    count.textContent = (i + 1) + " / " + slides.length;
+    // The navigation hint belongs on the opening slide only — anywhere else it
+    // is a caption competing with the content.
+    hint.classList.toggle("on", i === 0);
+    try{ history.replaceState(null, "", "#" + (i + 1)); }catch(e){}
+  }
+
+  document.addEventListener("keydown", function(e){
+    if(e.key === "ArrowRight" || e.key === "PageDown" || e.key === " "){ e.preventDefault(); show(i + 1); }
+    else if(e.key === "ArrowLeft" || e.key === "PageUp"){ e.preventDefault(); show(i - 1); }
+    else if(e.key === "Home"){ e.preventDefault(); show(0); }
+    else if(e.key === "End"){ e.preventDefault(); show(slides.length - 1); }
+  });
+
+  document.getElementById("next").addEventListener("click", function(e){ e.stopPropagation(); show(i + 1); });
+  document.getElementById("prev").addEventListener("click", function(e){ e.stopPropagation(); show(i - 1); });
+  document.getElementById("count").addEventListener("click", function(e){ e.stopPropagation(); show(0); });
+
+  // Click the right/left half of the deck to advance or go back.
+  document.getElementById("deck").addEventListener("click", function(e){
+    if(window.getSelection().toString()) return;      // don't hijack text selection
+    show(e.clientX > window.innerWidth * 0.35 ? i + 1 : i - 1);
+  });
+
+  var x0 = null;
+  document.addEventListener("touchstart", function(e){ x0 = e.touches[0].clientX; }, {passive:true});
+  document.addEventListener("touchend", function(e){
+    if(x0 === null) return;
+    var dx = e.changedTouches[0].clientX - x0;
+    if(Math.abs(dx) > 55) show(dx < 0 ? i + 1 : i - 1);
+    x0 = null;
+  }, {passive:true});
+
+  // The visibility figure: 24 disclosed, 48 not.
+  var wrap = document.getElementById("blocks");
+  if(wrap){
+    var html = "";
+    for(var k = 0; k < 72; k++) html += '<i class="' + (k < 24 ? "seen" : "hidden") + '"></i>';
+    wrap.innerHTML = html;
+  }
+
+  var start = parseInt((location.hash || "").replace("#", ""), 10);
+  show(isNaN(start) ? 0 : start - 1);
+})();
+</script>
+
+</body>
+</html>
