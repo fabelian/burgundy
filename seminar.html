@@ -188,6 +188,57 @@ code{background:color-mix(in srgb,var(--wine) 9%,transparent); color:var(--wine)
   padding:1px 7px; border-radius:5px;
 }
 
+/* ── Person card — portrait + short CV ─────────────────────── */
+.person{display:flex; gap:clamp(16px,2.6vw,32px); align-items:center; flex-wrap:wrap;}
+.person .shot{
+  flex:none; width:clamp(104px,13vw,168px); aspect-ratio:1; border-radius:50%;
+  overflow:hidden; background:color-mix(in srgb,var(--wine) 12%,var(--card));
+  border:1px solid color-mix(in srgb,var(--wine) 26%,var(--line));
+  display:grid; place-items:center;
+}
+.person .shot img{width:100%; height:100%; object-fit:cover; display:block;}
+.person .shot .mono{
+  font-family:var(--mono); font-weight:700; color:var(--wine);
+  font-size:clamp(26px,3.6vw,46px); letter-spacing:.04em;
+}
+.person .who{flex:1 1 min(100%,30ch); display:flex; flex-direction:column; gap:5px;}
+.person .who b{font-size:clamp(20px,2.6vw,34px); line-height:1.2;}
+.person .who .role{color:var(--wine); font-weight:600; font-size:clamp(14px,1.5vw,18px);}
+
+/* ── Bar chart — one series, one hue, every bar labelled ───── */
+.bars{
+  display:flex; align-items:flex-end; gap:clamp(18px,4vw,64px);
+  height:clamp(150px,26vh,240px); padding-left:2px; justify-content:center;
+  border-bottom:1px solid var(--rule);
+}
+.bars .b{flex:1 1 0; display:flex; flex-direction:column; justify-content:flex-end;
+         align-items:center; gap:8px; height:100%; max-width:210px;}
+.bars .b .fig{font-family:var(--mono); font-weight:700; color:var(--wine);
+              font-size:clamp(16px,2.1vw,27px); white-space:nowrap;}
+.bars .b .bar{width:100%; background:var(--wine); border-radius:5px 5px 0 0;}
+.blabels{display:flex; gap:clamp(18px,4vw,64px); padding-left:2px; justify-content:center;}
+.blabels span{flex:1 1 0; max-width:210px; text-align:center;
+              font-size:clamp(12px,1.3vw,15px); color:var(--muted);}
+
+/* ── Hero stat row ─────────────────────────────────────────── */
+.stats{display:flex; gap:clamp(10px,1.8vw,22px); flex-wrap:wrap;}
+.stats .s{
+  flex:1 1 min(100%,16ch); background:var(--card); border:1px solid var(--line);
+  border-radius:11px; padding:clamp(12px,1.7vw,19px);
+  display:flex; flex-direction:column; gap:3px;
+}
+.stats .s .big{font-family:var(--mono); font-weight:700; color:var(--wine);
+               font-size:clamp(20px,2.7vw,34px); line-height:1.15;}
+.stats .s .cap{font-size:clamp(12px,1.3vw,15px); color:var(--ink-soft);}
+
+/* ── Source line ───────────────────────────────────────────── */
+.src{font-size:clamp(11px,1.15vw,13px); color:var(--muted); line-height:1.65;}
+.src b{font-weight:600; color:var(--ink-soft);}
+.todo{
+  color:var(--warn); background:color-mix(in srgb,var(--ochre) 16%,transparent);
+  padding:1px 7px; border-radius:5px; font-family:var(--mono); font-weight:600;
+}
+
 /* ── Chat transcript — the real prompts, reproduced ────────── */
 .chat{display:flex; flex-direction:column; gap:clamp(9px,1.4vh,15px);}
 .chat .said{
@@ -305,8 +356,9 @@ td strong{color:var(--wine);}
   <section class="slide" data-sec="시작">
     <div class="inner">
       <div class="eyebrow">오늘 다룰 것</div>
-      <h2>네 부분입니다</h2>
+      <h2>다섯 부분입니다</h2>
       <div class="rows">
+        <div class="row"><span class="k">0 &nbsp;&nbsp;요즘 무슨 일이 벌어지나</span><span class="v dim">AI 에이전트 · 왜 지금인가</span></div>
         <div class="row"><span class="k">1 &nbsp;&nbsp;무엇을 보여주는가</span><span class="v dim">운용규모 · 미국 보유종목 · 변화</span></div>
         <div class="row"><span class="k">2 &nbsp;&nbsp;어떻게 만들었는가</span><span class="v">채팅 → 문서 → 구현</span></div>
         <div class="row"><span class="k">3 &nbsp;&nbsp;쓴 도구 세 가지</span><span class="v dim">GitHub · Claude Code · Railway</span></div>
@@ -344,6 +396,116 @@ td strong{color:var(--wine);}
       </div>
       <p class="tiny">휴대폰에서도 그대로 열립니다. 뒤에 나오는 화면들을 직접 눌러보면서
         들으시면 훨씬 빠릅니다.</p>
+    </div>
+  </section>
+
+  <!-- ── Part 0 · 요즘 무슨 일이 벌어지고 있나 ───────── -->
+  <section class="slide" data-sec="0 · 배경">
+    <div class="inner">
+      <div class="eyebrow">Part 0 · 왜 지금인가</div>
+      <h2>“코드를 못 짜도 만들 수 있다”가<br>최근에야 사실이 됐습니다</h2>
+      <div class="flow">
+        <div class="step"><b>~2023</b><span>자동완성</span><span class="tiny">타이핑을 몇 글자 앞서 채워주는 수준. 무엇을 만들지는 사람이 다 정함</span></div>
+        <div class="arrow">→</div>
+        <div class="step"><b>2024</b><span>채팅</span><span class="tiny">코드를 물어보고 답을 받아 <strong>사람이 복사해 붙임</strong>. 실행은 사람 몫</span></div>
+        <div class="arrow">→</div>
+        <div class="step"><b>2025~</b><span>에이전트</span><span class="tiny">직접 파일을 열고 고치고 <strong>실행해서 확인까지</strong>. 사람은 시키고 검토함</span></div>
+      </div>
+      <p>세 번째 칸이 이 발표의 전제입니다. 앞의 두 단계는 <strong>이미 코드를 아는 사람을 빠르게</strong> 만들어 줬을 뿐이고,
+        세 번째부터 <strong>코드를 모르는 사람이 결과물을 갖게</strong> 됐습니다. 이 서비스가 그 사례입니다.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-sec="0 · 배경">
+    <div class="inner">
+      <div class="eyebrow">Part 0 · Claude Code를 만든 사람</div>
+      <h2>한 사람이 사내 장난감으로<br>시작한 도구입니다</h2>
+      <div class="person">
+        <!-- 사진: 아래 .mono를 <img src="data:image/jpeg;base64,…" alt="Boris Cherny">로
+             바꾸면 들어갑니다. 외부 주소(http…)는 이 자료에서 차단되므로 파일을 직접 심어야 합니다. -->
+        <div class="shot"><span class="mono">BC</span></div>
+        <div class="who">
+          <b>Boris Cherny</b>
+          <span class="role">Claude Code 창시자 · 총괄 (Anthropic)</span>
+          <span class="tiny">지금 이 서비스를 만든 도구를 처음 만든 사람입니다.</span>
+        </div>
+      </div>
+      <div class="rows">
+        <div class="row"><span class="k">Meta · Instagram</span><span class="v dim">5년, 프린시펄 엔지니어</span></div>
+        <div class="row"><span class="k">저서</span><span class="v dim">Programming TypeScript</span></div>
+        <div class="row"><span class="k">Anthropic 합류</span><span class="v">2024년 9월</span></div>
+        <div class="row"><span class="k">Claude Code 정식 출시</span><span class="v">2025년 5월</span></div>
+      </div>
+      <div class="callout">
+        <h3>시작은 장난감이었습니다</h3>
+        <p>합류 첫 주에 Claude를 터미널에 붙여 <strong>본인 컴퓨터의 음악을 읽어오게 한 게</strong> 전부였습니다.
+          거기서 1년 만에, 출시 후 <strong>연 매출 10억 달러</strong> 규모의 도구가 됐습니다.</p>
+      </div>
+      <p class="src"><b>출처</b> · Pragmatic Engineer “Building Claude Code with Boris Cherny”, Lenny’s Newsletter,
+        LinkedIn 프로필. 사진은 저작권 확인 후 넣어야 합니다.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-sec="0 · 배경">
+    <div class="inner">
+      <div class="eyebrow">Part 0 · 질적 차이</div>
+      <h2>“빨라진 것”이 아니라<br>일하는 방식이 바뀐 겁니다</h2>
+      <div class="tw">
+        <table>
+          <thead><tr><th></th><th>기존 코딩 도구</th><th>Claude Code 같은 에이전트</th></tr></thead>
+          <tbody>
+            <tr><td><strong>맡기는 단위</strong></td><td>한 줄, 한 함수</td><td><strong>“이걸 만들어줘” 한 덩어리</strong></td></tr>
+            <tr><td><strong>보는 범위</strong></td><td>지금 열어둔 파일</td><td><strong>프로젝트 전체를 읽고 시작</strong></td></tr>
+            <tr><td><strong>실행</strong></td><td>사람이 직접</td><td><strong>스스로 돌려보고 틀리면 고침</strong></td></tr>
+            <tr><td><strong>사람의 역할</strong></td><td>타이핑하는 사람</td><td><strong>시키고 검토하는 사람</strong></td></tr>
+            <tr><td><strong>필요한 것</strong></td><td>코드를 읽을 줄 앎</td><td><strong>무엇을 원하는지 설명할 줄 앎</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>맨 아랫줄이 핵심입니다. 앞의 도구들은 <strong>이미 코드를 아는 사람의 속도</strong>를 올렸습니다.
+        에이전트는 <strong>필요한 능력 자체를 바꿨습니다</strong> — 그래서 이 자리에 계신 분들 이야기가 됩니다.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-sec="0 · 배경">
+    <div class="inner">
+      <div class="eyebrow">Part 0 · 쓰는 양</div>
+      <h2>6개월 만에 5배로 늘었습니다</h2>
+      <div class="bars">
+        <div class="b"><span class="fig">5조</span><span class="bar" style="height:20%"></span></div>
+        <div class="b"><span class="fig">25조</span><span class="bar" style="height:100%"></span></div>
+      </div>
+      <div class="blabels"><span>2025년 11월</span><span>2026년 5월</span></div>
+      <p class="tiny">OpenRouter 한 곳에서 <strong>일주일에</strong> 처리한 AI 토큰 수. 토큰은 AI가 읽고 쓴 글의 분량 단위입니다.</p>
+      <div class="stats">
+        <div class="s"><span class="big">100조 → 1,500조</span><span class="cap">연 환산 토큰 (2025.5 → 2026.5)</span></div>
+        <div class="s"><span class="big">250만 → 800만</span><span class="cap">쓰는 개발자 수</span></div>
+      </div>
+      <p class="src"><b>출처</b> · OpenRouter·a16z 공동 조사 「State of AI」 (2026년 5월). &nbsp;
+        <b>다만</b> 이 증가가 특정 도구 하나 때문이라고는 말할 수 없습니다. 시기가 겹칠 뿐입니다 —
+        Claude Code 정식 출시가 2025년 5월입니다.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-sec="0 · 배경">
+    <div class="inner">
+      <div class="eyebrow">Part 0 · 현장 반응</div>
+      <h2>업계는 이미 다르게 말합니다</h2>
+      <div class="callout">
+        <h3>금융권 시니어 퀀트 인터뷰</h3>
+        <p><span class="todo">인용문 채워야 함</span> — risk.net 기사 원문을 아직 확인하지 못했습니다(유료).
+          링크나 문장을 주시면 그대로 넣겠습니다.</p>
+      </div>
+      <div class="rows">
+        <div class="row"><span class="k">“2030년까지 일하는 방식이 근본적으로 바뀔 것”</span><span class="v">82%</span></div>
+        <div class="row"><span class="k">“코딩보다 설계로 역할이 옮겨갈 것”</span><span class="v">74%</span></div>
+        <div class="row"><span class="k">22~25세 개발자 고용 (2024년 대비)</span><span class="v">−20%</span></div>
+        <div class="row"><span class="k">“내 직군이 아예 없어질 것”</span><span class="v dim">17%</span></div>
+      </div>
+      <p>맨 아랫줄을 같이 봐야 합니다. <strong>직업이 사라진다기보다 하는 일이 바뀝니다.</strong>
+        다만 <strong>신입 자리는 실제로 줄고 있고</strong>, 줄어드는 쪽은 “시키는 대로 코드를 치는 일”입니다.
+        남는 쪽은 <strong>무엇을 만들지 정하고 결과를 검토하는 일</strong> — 오늘 보여드릴 방식입니다.</p>
+      <p class="src"><b>출처</b> · Stack Overflow 개발자 설문 (응답 83,000명), Stanford HAI AI Index 2026.</p>
     </div>
   </section>
 
