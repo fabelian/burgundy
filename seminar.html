@@ -162,7 +162,10 @@ code{background:color-mix(in srgb,var(--wine) 9%,transparent); color:var(--wine)
 }
 .access .addr{
   font-family:var(--mono); font-weight:700; word-break:break-all; line-height:1.25;
-  font-size:clamp(16px,2.5vw,30px); color:var(--wine); text-decoration:none;
+  /* min sized so the host name stays on one line at 390px — a URL split
+     mid-word ("railway.a / pp") is the one thing on this slide that has to
+     be readable enough to retype. */
+  font-size:clamp(13px,2.5vw,30px); color:var(--wine); text-decoration:none;
   border-bottom:2px solid color-mix(in srgb,var(--wine) 32%,transparent);
   align-self:flex-start;
 }
@@ -320,8 +323,8 @@ td strong{color:var(--wine);}
       <div class="eyebrow">지금 열어보세요</div>
       <h2>주소와 로그인</h2>
       <div class="access">
-        <a class="addr" href="https://BURGUNDY-APP-ADDRESS.up.railway.app"
-           target="_blank" rel="noopener">https://BURGUNDY-APP-ADDRESS.up.railway.app</a>
+        <a class="addr" href="https://burgundy-production.up.railway.app"
+           target="_blank" rel="noopener">burgundy-production.up.railway.app</a>
         <div class="creds">
           <div class="cred">
             <span class="lbl">아이디</span>
