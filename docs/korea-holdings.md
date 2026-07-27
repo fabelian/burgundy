@@ -16,13 +16,18 @@ later**. Everything below about ruled-out sources was reasoned against the Canad
 the two US advisers change some of those answers, and that is set out in
 "US-domiciled managers" below.
 
-**DRZ is DePrince, Race & Zollo (Winter Park, FL); Kopernik is Kopernik Global Investors
-(Tampa, FL)** — both confirmed, and **DRZ's CIK `0001008894` is on file**, so its 13F now
-collects. Identifiers arrive one at a time and each is filled in only when supplied: there
-is no name-to-CIK resolution anywhere in this repo, so knowing the firm never starts a
-collector by itself. Kopernik's CIK, both CRDs and both website URLs are still blank, and
-the collectors that need them skip — visible on the panel as "not configured", where a
-wrong CIK would instead show another firm's portfolio and look entirely normal.
+**DRZ is DePrince, Race & Zollo (Winter Park, FL), CIK `0001008894`; Kopernik is Kopernik
+Global Investors (Tampa, FL), CIK `0001599814`.** Both now collect from EDGAR. Identifiers
+arrive one at a time and each is filled in only when supplied — there is no name-to-CIK
+resolution anywhere in this repo, so knowing the firm never starts a collector by itself.
+Both CRDs, DRZ's website and Kopernik's team-page path are still blank, and the collectors
+that need them skip: visible on the panel as "not configured", where a wrong value would
+instead scrape or file somebody else's data under this manager and look entirely normal.
+
+> **Kopernik's `0001599814` is the *adviser's* CIK — the one 13F is filed under.** If its
+> global all-cap strategy is a US-registered fund, that fund's **N-PORT is filed by the
+> fund or its trust under a different CIK**, so an EDGAR search on this number will not
+> find it and its absence proves nothing. Search the fund name.
 
 What the confirmation *did* unlock is the DART safety net. A deep-value manager running an
 EM strategy is a far likelier 5% filer in a Korean small cap than the large-cap-oriented
