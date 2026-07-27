@@ -135,17 +135,21 @@ code{background:color-mix(in srgb,var(--wine) 9%,transparent); color:var(--wine)
 .verdict b{display:block; font-size:clamp(15px,1.7vw,20px); margin-bottom:3px;}
 .verdict span.d{font-size:clamp(13px,1.4vw,16px); color:var(--ink-soft);}
 
-/* ── The 72-block visibility figure (the one bold moment) ──── */
-#blocks{display:grid; grid-template-columns:repeat(24,1fr); gap:clamp(3px,.5vw,6px); margin:2px 0;}
-#blocks i{aspect-ratio:1; border-radius:2px; display:block;}
-#blocks i.seen{background:var(--wine);}
-#blocks i.hidden{border:1px solid var(--rule); background:transparent;}
-@media (max-width:640px){#blocks{grid-template-columns:repeat(12,1fr);}}
-.legend{display:flex; gap:clamp(14px,3vw,30px); flex-wrap:wrap; font-size:clamp(12px,1.35vw,15px);}
-.legend span{display:flex; align-items:center; gap:8px; color:var(--ink-soft);}
-.legend b.sw{width:13px; height:13px; border-radius:3px; flex:none;}
-.legend b.sw.seen{background:var(--wine);}
-.legend b.sw.hidden{border:1px solid var(--rule);}
+
+/* ── Numbered steps ────────────────────────────────────────── */
+.steps{display:flex; flex-direction:column; gap:clamp(9px,1.4vh,14px);}
+.steps .s{display:flex; gap:clamp(12px,1.7vw,18px); align-items:flex-start;
+          background:var(--card); border:1px solid var(--line); border-radius:11px;
+          padding:clamp(12px,1.7vw,18px);}
+.steps .s>b{
+  flex:none; width:1.9em; height:1.9em; border-radius:50%;
+  display:grid; place-items:center; font-family:var(--mono); font-weight:700;
+  font-size:clamp(13px,1.4vw,16px);
+  background:color-mix(in srgb,var(--wine) 12%,transparent); color:var(--wine);
+}
+.steps .s>div{display:flex; flex-direction:column; gap:3px;}
+.steps b.t{font-size:clamp(15px,1.6vw,19px); font-weight:700; color:var(--ink);}
+.steps span{font-size:clamp(13px,1.4vw,16px); color:var(--ink-soft);}
 
 /* ── Chat transcript — the real prompts, reproduced ────────── */
 .chat{display:flex; flex-direction:column; gap:clamp(9px,1.4vh,15px);}
@@ -251,88 +255,175 @@ td strong{color:var(--wine);}
 
 <div class="deck" id="deck">
 
-  <!-- 1 ─────────────────────────────────────────────── -->
   <section class="slide" data-sec="시작">
     <div class="inner">
       <div class="eyebrow">CRM 세미나 · 2026</div>
-      <h1>담당 운용사가<br>무슨 주식을 갖고 있는지<br>매일 자동으로 보기</h1>
-      <p class="lede">흩어진 공개 자료를 모아서 한 화면에 띄우는 프로그램을 만들었습니다.<br>
-        어떻게 만들었고, 어떻게 읽어야 하는지 설명드립니다.</p>
+      <h1>담당 운용사 정보를<br>매일 자동으로 모으는<br>서비스를 만들었습니다</h1>
+      <p class="lede">코드를 한 줄도 직접 쓰지 않고, <strong>Claude에게 한국어로 말해서</strong> 만들었습니다.<br>
+        무엇을 보여주는지, 그리고 어떻게 만들었는지 설명드립니다.</p>
       <p class="tiny">→ 방향키 · 클릭 · 스와이프로 넘깁니다</p>
     </div>
   </section>
 
-  <!-- 2 ─────────────────────────────────────────────── -->
   <section class="slide" data-sec="시작">
     <div class="inner">
       <div class="eyebrow">오늘 다룰 것</div>
-      <h2>여섯 부분입니다</h2>
+      <h2>네 부분입니다</h2>
       <div class="rows">
-        <div class="row"><span class="k">1 &nbsp;&nbsp;우리가 풀려는 문제</span><span class="v dim">왜 필요한가</span></div>
-        <div class="row"><span class="k">2 &nbsp;&nbsp;어떻게 만들었나</span><span class="v">실제 대화 내용</span></div>
-        <div class="row"><span class="k">3 &nbsp;&nbsp;도구 세 가지</span><span class="v dim">GitHub · Claude Code · Railway</span></div>
-        <div class="row"><span class="k">4 &nbsp;&nbsp;매일 하는 일</span><span class="v dim">자료 수집 구조</span></div>
-        <div class="row"><span class="k">5 &nbsp;&nbsp;실제 결과와 화면</span><span class="v dim">실무</span></div>
-        <div class="row"><span class="k">6 &nbsp;&nbsp;꼭 알아야 할 한 가지</span><span class="v">가장 중요</span></div>
+        <div class="row"><span class="k">1 &nbsp;&nbsp;무엇을 보여주는가</span><span class="v dim">운용규모 · 미국 보유종목 · 변화</span></div>
+        <div class="row"><span class="k">2 &nbsp;&nbsp;어떻게 만들었는가</span><span class="v">채팅 → 문서 → 구현</span></div>
+        <div class="row"><span class="k">3 &nbsp;&nbsp;쓴 도구 세 가지</span><span class="v dim">GitHub · Claude Code · Railway</span></div>
+        <div class="row"><span class="k">4 &nbsp;&nbsp;현황과 다음</span><span class="v dim">부탁드릴 것</span></div>
       </div>
-      <p class="tiny">기술 배경 지식은 필요 없습니다. 5번을 모르고 쓰면 영업 판단이 틀어질 수 있어서, 그 하나만 확실히 남기는 게 오늘 목표입니다.</p>
+      <p class="tiny">기술 배경 지식은 필요 없습니다. 2번이 오늘의 핵심입니다 —
+        <strong>여러분도 같은 방식으로 만들 수 있다</strong>는 게 요점이라서요.</p>
     </div>
   </section>
 
-  <!-- 3 ─────────────────────────────────────────────── -->
-  <section class="slide" data-sec="1 · 문제">
+  <!-- ── Part 1 · 무엇을 보여주는가 ─────────────────── -->
+  <section class="slide" data-sec="1 · 무엇을">
     <div class="inner">
-      <div class="eyebrow">Part 1 · 우리가 풀려는 문제</div>
-      <h2>“이 운용사, 삼성전자 갖고 있나요?”</h2>
-      <p class="lede">CRM 담당자라면 늘 받는 질문입니다. 그런데 답하려면 매번 사람이 찾아봐야 했습니다.</p>
-      <div class="grid g3">
-        <div class="card"><h3>어디에</h3><p>미국·한국·캐나다 기관에 자료가 흩어져 있습니다.</p></div>
-        <div class="card"><h3>어떤 형식으로</h3><p>PDF, 엑셀, 웹페이지 — 기관마다 다릅니다.</p></div>
-        <div class="card"><h3>언제</h3><p>분기·반기·연 단위로 제각각 나옵니다.</p></div>
+      <div class="eyebrow">Part 1 · 왜 필요했나</div>
+      <h2>담당 운용사에 대해<br>늘 받는 질문들</h2>
+      <div class="grid g2">
+        <div class="card"><h3>“요즘 얼마나 굴려요?”</h3><p>운용 규모가 늘었는지 줄었는지</p></div>
+        <div class="card"><h3>“최근에 뭘 샀대요?”</h3><p>새로 들어간 종목, 정리한 종목</p></div>
+        <div class="card"><h3>“그 매니저 아직 있어요?”</h3><p>담당 인력 변동</p></div>
+        <div class="card"><h3>“우리 종목 갖고 있나요?”</h3><p>보유 여부와 규모</p></div>
       </div>
-      <p>한 번 찾는 것도 일이지만, 더 큰 문제는 <strong>계속 봐야 한다</strong>는 겁니다.
-        지난 분기보다 늘었는지 줄었는지가 영업에서는 더 중요하니까요.</p>
+      <p>전부 <strong>공개된 자료에 답이 있습니다.</strong> 다만 여러 기관에 흩어져 있고,
+        형식이 제각각이고, 계속 새로 나옵니다. 매번 사람이 찾기엔 부담이 큽니다.</p>
     </div>
   </section>
 
-  <!-- 4 ─────────────────────────────────────────────── -->
-  <section class="slide" data-sec="1 · 문제">
+  <section class="slide" data-sec="1 · 무엇을">
     <div class="inner">
-      <div class="eyebrow">Part 1 · 함정</div>
-      <h2>한국 공시로는<br>대형주를 볼 수 없습니다</h2>
-      <p>금감원 DART에는 <strong>5% 이상 지분</strong>을 가지면 공시하는 제도가 있습니다.
-        여기를 뒤지면 될 것 같지만, 그렇지 않습니다.</p>
+      <div class="eyebrow">Part 1 · 화면 구성</div>
+      <h2>다섯 개 화면입니다</h2>
+      <div class="tw">
+        <table>
+          <thead><tr><th>화면</th><th>보여주는 것</th><th>출처</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Overview</strong></td><td>한눈에 보는 요약</td><td class="m">전체</td></tr>
+            <tr><td><strong>AUM</strong></td><td>운용 규모 추이</td><td class="m">SEC 등록서류 · 홈페이지</td></tr>
+            <tr><td><strong>US Holdings</strong></td><td>미국 주식 보유종목</td><td class="m">SEC 13F</td></tr>
+            <tr><td><strong>Korea</strong></td><td>한국 주식 보유종목</td><td class="m">펀드 소개서</td></tr>
+            <tr><td><strong>Changes</strong></td><td>무엇이 언제 바뀌었나</td><td class="m">자동 비교</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="tiny">이 중 <strong>AUM과 US Holdings</strong>가 가장 튼튼합니다.
+        법으로 제출이 의무화된 서류라서 빠짐이 없습니다.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-sec="1 · 무엇을">
+    <div class="inner">
+      <div class="eyebrow">Part 1 · AUM</div>
+      <h2>운용 규모를<br>세 군데서 따로 봅니다</h2>
+      <div class="rows">
+        <div class="row"><span class="k">Form ADV <span class="m">SEC 공식 등록서류</span></span><span class="v">가장 공식적</span></div>
+        <div class="row"><span class="k">13F 합계 <span class="m">분기 보유내역 합산</span></span><span class="v dim">미국분만</span></div>
+        <div class="row"><span class="k">홈페이지 표기</span><span class="v dim">회사가 스스로 밝힌 숫자</span></div>
+      </div>
+      <p>왜 세 개나 볼까요? <strong>기준도 시점도 다르기 때문입니다.</strong>
+        하나만 보면 “왜 저 회사 자료랑 숫자가 다르지?”에 답할 수 없습니다.
+        어느 숫자가 어디서 왔는지 항상 같이 표시합니다.</p>
       <div class="callout">
-        <h3>5%는 “발행 회사 지분율” 기준입니다</h3>
-        <p>삼성전자 지분 5%면 <strong>수십조 원</strong>입니다.
-          이 운용사들이 굴리는 돈 전체보다 큽니다. 그래서 <strong>구조적으로 절대 안 나옵니다.</strong></p>
+        <h3>자릿수가 튀면 표시합니다</h3>
+        <p>공시 단위가 바뀌면 숫자가 1,000배로 뛰기도 합니다.
+          그대로 두면 그래프가 납작해져서 아무것도 안 보입니다.
+          앞뒤 값과 비교해 <strong>10배 이상 튀는 값은 “이상치?”로 따로 표시</strong>합니다.</p>
       </div>
-      <p>실제로 이 제도로 잡히는 건 <span class="m">오성첨단소재</span> 같은 소형주뿐이었습니다.
-        찾으려던 것과 정반대입니다.</p>
-      <p class="tiny">→ 그래서 다른 경로가 필요했습니다. 운용사가 <strong>스스로 내는 펀드 소개서(팩트시트)</strong>입니다.</p>
     </div>
   </section>
 
-  <!-- ── Part 2 · 실제 개발 과정 ─────────────────────── -->
-  <section class="slide" data-sec="2 · 개발 과정">
+  <section class="slide" data-sec="1 · 무엇을">
     <div class="inner">
-      <div class="eyebrow">Part 2 · 어떻게 만들었나</div>
-      <h2>코드를 한 줄도<br>직접 쓰지 않았습니다</h2>
-      <p class="lede">개발자에게 의뢰한 것도 아닙니다.
-        <strong>Claude에게 한국어로 말해서</strong> 만들었습니다. 세 단계였습니다.</p>
+      <div class="eyebrow">Part 1 · 미국 주식 보유현황</div>
+      <h2>가장 믿을 만한 자료입니다</h2>
+      <p class="lede">미국에서 일정 규모 이상을 굴리는 운용사는 <strong>분기마다 보유종목을 의무 제출</strong>합니다.
+        <span class="m">13F</span>라고 부릅니다.</p>
+      <div class="grid g2">
+        <div class="card"><h3>담긴 것</h3><p>종목명 · 보유 수량 · 평가금액 · 펀드 내 비중</p></div>
+        <div class="card"><h3>비교되는 것</h3><p>전분기 대비 <strong>신규 · 증가 · 감소 · 전량매도</strong></p></div>
+      </div>
+      <div class="tw">
+        <table>
+          <thead><tr><th>종목</th><th class="n">수량</th><th class="n">비중</th><th class="n">전분기 대비</th></tr></thead>
+          <tbody>
+            <tr><td>(예시)</td><td class="n">1,240,000</td><td class="n">4.21%</td><td class="n"><span class="pill">NEW</span></td></tr>
+            <tr><td>(예시)</td><td class="n">880,500</td><td class="n">3.02%</td><td class="n">+120,000</td></tr>
+            <tr><td>(예시)</td><td class="n">310,000</td><td class="n">1.14%</td><td class="n">−45,000</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="tiny">분기를 골라 과거 시점도 볼 수 있고, 상위 종목 구성은 그래프로도 나옵니다.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-sec="1 · 무엇을">
+    <div class="inner">
+      <div class="eyebrow">Part 1 · 변화 기록</div>
+      <h2>달라진 것만 따로 쌓입니다</h2>
+      <p class="lede">매번 전체를 다시 읽을 필요가 없습니다.
+        <strong>지난번과 비교해서 달라진 것만</strong> 자동으로 뽑아 시간순으로 쌓아둡니다.</p>
       <div class="rows">
-        <div class="row"><span class="k">1 &nbsp;&nbsp;무엇을 만들지 상의</span><span class="v dim">채팅으로 설계 논의</span></div>
-        <div class="row"><span class="k">2 &nbsp;&nbsp;설계도를 문서로</span><span class="v dim">스펙 파일 작성</span></div>
-        <div class="row"><span class="k">3 &nbsp;&nbsp;그대로 구현</span><span class="v">Claude Code가 코드 작성</span></div>
+        <div class="row"><span class="k">새로 산 종목 · 전량 판 종목</span><span class="v dim">보유내역 비교</span></div>
+        <div class="row"><span class="k">비중을 늘린 종목 · 줄인 종목</span><span class="v dim">수량 증감</span></div>
+        <div class="row"><span class="k">임직원 입사 · 퇴사 · 직책 변경</span><span class="v dim">팀 페이지 비교</span></div>
+        <div class="row"><span class="k">운용 규모 변동</span><span class="v dim">AUM 비교</span></div>
       </div>
-      <p class="tiny">다음 세 장은 그때 실제로 오간 내용입니다.</p>
+      <p>영업에서 실제로 쓰는 건 대개 이 화면입니다.
+        <strong>“지난 분기 대비 무슨 일이 있었나”</strong>가 대화의 출발점이니까요.</p>
+      <p class="tiny">설정하면 변화가 생겼을 때 메신저로 알림도 보낼 수 있습니다.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-sec="1 · 무엇을">
+    <div class="inner">
+      <div class="eyebrow">Part 1 · 한국 주식</div>
+      <h2>한국만 사정이 다릅니다</h2>
+      <p class="lede">미국 서류(13F)에는 <strong>미국 상장 종목만</strong> 나옵니다.
+        삼성전자·SK하이닉스는 미국 증시에 없어서 절대 안 나옵니다.</p>
+      <div class="rows">
+        <div class="row"><span class="k">한국 DART 5% 공시</span><span class="v dim">대형주는 구조적으로 안 나옴</span></div>
+        <div class="row"><span class="k">운용사 펀드 소개서</span><span class="v">여기서 뽑습니다</span></div>
+      </div>
+      <div class="callout warn">
+        <h3>단, 소개서에는 상위 종목만 실립니다</h3>
+        <p>보통 상위 10~25개만 인쇄됩니다. 그래서 이 화면이 말하는 건
+          <strong>“최소한 이만큼은 보유”</strong>이지 <strong>“이게 전부”</strong>가 아닙니다.
+          표에 없다고 미보유로 단정하면 실제 고객을 놓칩니다.</p>
+      </div>
+      <p class="tiny">실제 예: Mawer International Equity 펀드 —
+        SK하이닉스 3.0%(약 2,170억 원), 삼성전자 2.8%(약 2,030억 원).</p>
+    </div>
+  </section>
+
+  <!-- ── Part 2 · 어떻게 만들었나 ───────────────────── -->
+  <section class="slide" data-sec="2 · 개발 과정">
+    <div class="inner">
+      <div class="eyebrow">Part 2 · 오늘의 핵심</div>
+      <h2>코드를 한 줄도<br>직접 쓰지 않았습니다</h2>
+      <p class="lede">개발자에게 의뢰하지도 않았습니다. <strong>세 단계</strong>였습니다.</p>
+      <div class="flow">
+        <div class="step"><b>1 · 상의</b><span>Claude 채팅에서<br>무엇을 만들지 논의</span></div>
+        <div class="arrow">→</div>
+        <div class="step"><b>2 · 문서화</b><span>그 내용을<br>설계 문서(MD)로</span></div>
+        <div class="arrow">→</div>
+        <div class="step"><b>3 · 구현</b><span>Claude Code가<br>문서대로 개발</span></div>
+      </div>
+      <p>이 세 단계가 오늘 가장 가져가셨으면 하는 부분입니다.
+        <strong>업무에 필요한 도구를 직접 만들 수 있다</strong>는 뜻이니까요.</p>
+      <p class="tiny">다음 장부터는 그때 실제로 오간 내용입니다.</p>
     </div>
   </section>
 
   <section class="slide" data-sec="2 · 개발 과정">
     <div class="inner">
-      <div class="eyebrow">1단계 · 무엇을 만들지 상의</div>
-      <h2>그냥 하고 싶은 걸<br>적었습니다</h2>
+      <div class="eyebrow">1단계 · Claude 채팅</div>
+      <h2>하고 싶은 걸<br>그냥 적었습니다</h2>
       <div class="chat">
         <div class="said">특정 자산운용사(burgandy)의 AUM 추이와 펀드의 주요 구성 주식들,
           주요 인사들, 보유한 한국 주식 등을 정기적으로 트래킹하는 서비스를 만들고 싶어.
@@ -346,30 +437,15 @@ td strong{color:var(--wine);}
           <span>소스 → 저장 → 이력의 3계층으로 설계하는 걸 권합니다.</span>
         </div>
       </div>
-      <p class="tiny">기술 용어를 쓸 필요가 없었습니다. 회사 이름과 원하는 것만 적었습니다.</p>
+      <p class="tiny">전문용어를 쓸 필요가 없었습니다. 회사 이름과 원하는 것만 적었더니
+        <strong>어려운 지점을 먼저 짚어줬습니다.</strong> 이 한 문장이 나중에 한국 쪽 설계를 전부 결정했습니다.</p>
     </div>
   </section>
 
   <section class="slide" data-sec="2 · 개발 과정">
     <div class="inner">
-      <div class="eyebrow">1단계 · 그때 나온 한 문장</div>
-      <h2>이 프로젝트 전체가<br>여기서 결정됐습니다</h2>
-      <div class="callout warn">
-        <h3>“13F에는 미국 상장 증권만 나오기 때문에<br>한국 주식은 별도 소스가 필요합니다”</h3>
-      </div>
-      <p>맨 처음 대화에서 나온 말입니다. 그리고 실제로 그랬습니다 —
-        미국 서류를 아무리 뒤져도 삼성전자는 나오지 않습니다. <strong>미국 증시에 없으니까요.</strong></p>
-      <p>그래서 한국 쪽 소스를 따로 찾아야 했고, 그 과정에서 앞에서 본
-        <strong>DART 5% 함정</strong>을 만났고, 결국 <strong>펀드 소개서</strong>에 도달했습니다.</p>
-      <p class="tiny">→ 첫 대화에서 방향이 잡히면 나머지가 훨씬 빨라집니다.
-        “일단 만들어줘”보다 “이게 왜 어려운지 먼저 짚어줘”가 좋은 이유입니다.</p>
-    </div>
-  </section>
-
-  <section class="slide" data-sec="2 · 개발 과정">
-    <div class="inner">
-      <div class="eyebrow">2단계 · 설계도를 문서로</div>
-      <h2>대화 내용을<br>설계 문서로 만들었습니다</h2>
+      <div class="eyebrow">2단계 · 설계 문서 만들기</div>
+      <h2>대화 내용을<br>문서 한 장으로</h2>
       <div class="chat">
         <div class="said">위의 내용을 claude code에서 수행할 수 있게 md 파일을 만들어줘</div>
         <div class="replied">
@@ -378,18 +454,41 @@ td strong{color:var(--wine);}
         </div>
       </div>
       <div class="file">📄 burgundy-tracker-spec.md <b>· 설계 문서</b></div>
-      <p>여기 담긴 것: 자료를 어떻게 저장할지, 기관별로 어떻게 받아올지,
-        데이터베이스 설계 전체, 매일 아침 7시 실행 설정,
+      <p class="tiny"><strong>MD 파일</strong>은 그냥 글씨만 있는 문서 파일입니다.
+        워드처럼 복잡하지 않고, 제목·목록·표 정도만 표시되는 단순한 형식이라
+        사람과 프로그램이 둘 다 읽기 좋습니다.</p>
+      <p>담긴 것: 자료를 어떻게 저장할지, 기관별로 어떻게 받아올지,
+        데이터베이스 설계, 매일 아침 7시 실행 설정,
         <strong>1~6단계 구현 순서와 완료 체크리스트.</strong></p>
-      <p class="tiny">사람으로 치면 <strong>“상세 업무 지시서”</strong>입니다.
-        말로만 시키면 매번 달라지지만, 문서로 남기면 같은 기준으로 계속 이어갈 수 있습니다.</p>
     </div>
   </section>
 
   <section class="slide" data-sec="2 · 개발 과정">
     <div class="inner">
-      <div class="eyebrow">3단계 · 구현</div>
-      <h2>지시서를 넘기고<br>한 문장만 말했습니다</h2>
+      <div class="eyebrow">2단계 · 왜 문서를 거치나</div>
+      <h2>이 단계를 건너뛰면<br>결과가 흔들립니다</h2>
+      <div class="verdict">
+        <div class="no"><span class="mark">✕</span><div>
+          <b>말로만 시키면</b><span class="d">매번 조금씩 다르게 나옵니다.
+            어디까지 했는지 알기 어렵고, 대화가 길어지면 앞부분을 잊습니다.
+            다른 사람이 이어받기도 어렵습니다.</span></div></div>
+        <div class="yes"><span class="mark">○</span><div>
+          <b>문서로 남기면</b><span class="d">같은 기준으로 계속 이어집니다.
+            단계별 체크리스트가 있어 진행 상황이 보이고,
+            <strong>새 대화를 시작해도 그 문서만 주면 됩니다.</strong></span></div></div>
+      </div>
+      <div class="callout">
+        <h3>사람에게 일을 맡길 때와 똑같습니다</h3>
+        <p>“알아서 잘 해줘”보다 <strong>업무 지시서</strong>가 결과가 좋습니다.
+          다른 점은, <strong>그 지시서를 쓰는 것도 Claude가 대신해준다</strong>는 것뿐입니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" data-sec="2 · 개발 과정">
+    <div class="inner">
+      <div class="eyebrow">3단계 · Claude Code가 구현</div>
+      <h2>문서를 넘기고<br>한 문장만 말했습니다</h2>
       <div class="chat">
         <div class="said">첨부된 파일대로 구현해줘</div>
       </div>
@@ -400,8 +499,8 @@ td strong{color:var(--wine);}
 파일 4개 생성함 &nbsp;<span class="add">+193</span><br>
 Check for local Postgres availability …
       </div>
-      <p>빈 폴더에서 시작해서 <strong>스스로 순서를 잡고, 파일을 만들고, 검사까지</strong> 진행했습니다.
-        사람은 중간중간 확인하고 승인만 했습니다.</p>
+      <p>빈 폴더에서 시작해 <strong>문서에 적힌 순서대로</strong> 파일을 만들고,
+        스스로 검사하고, 다음 단계로 넘어갑니다. 사람은 중간중간 확인하고 승인만 했습니다.</p>
     </div>
   </section>
 
@@ -409,7 +508,7 @@ Check for local Postgres availability …
     <div class="inner">
       <div class="eyebrow">그 뒤로는</div>
       <h2>대화하면서 고쳐 나갑니다</h2>
-      <p class="lede">한 번 만들고 끝이 아닙니다. 쓰면서 이상한 걸 발견하면 <strong>말로 고칩니다.</strong></p>
+      <p class="lede">한 번 만들고 끝이 아닙니다. 쓰다가 이상한 걸 발견하면 <strong>말로 고칩니다.</strong></p>
       <div class="chat">
         <div class="said">📱 (화면 사진을 찍어 보내며) 여기서 다른 운용사 정보는 보여주지 마</div>
         <div class="replied">
@@ -417,8 +516,8 @@ Check for local Postgres availability …
             <em>남의 보유 종목이 선택한 운용사 것처럼 읽힙니다.</em> 잘못 만들었습니다. 고치겠습니다.</span>
         </div>
       </div>
-      <p>실제로 이번에 있었던 일입니다. <strong>휴대폰 화면을 찍어 보내는 것만으로</strong>
-        문제가 확인되고 수정됐습니다.</p>
+      <p><strong>휴대폰 화면을 찍어 보내는 것만으로</strong> 문제가 확인되고 수정됐습니다.
+        여러분도 같은 방식으로 알려주시면 됩니다.</p>
       <p class="tiny">이번 작업만으로 수정 20번, 자동 검사 205개 항목 — 언제 왜 바꿨는지 전부 남아 있습니다.</p>
     </div>
   </section>
@@ -433,11 +532,11 @@ Check for local Postgres availability …
         <div class="card"><span class="num">02</span><h3>Claude&nbsp;Code</h3><p>말로 시키는 <strong>개발 조수</strong></p></div>
         <div class="card"><span class="num">03</span><h3>Railway</h3><p>24시간 켜져 있는 <strong>남의 컴퓨터</strong></p></div>
       </div>
-      <p>하나씩 보겠습니다. 셋 다 “원래 사람이 하던 일”을 대신하는 도구입니다.</p>
+      <p>셋 다 <strong>원래 사람이 하던 일</strong>을 대신합니다.
+        하나씩, 무엇을 대신하는지로 보겠습니다.</p>
     </div>
   </section>
 
-  <!-- 6 ─────────────────────────────────────────────── -->
   <section class="slide" data-sec="3 · 도구">
     <div class="inner">
       <div class="eyebrow">01 · GitHub</div>
@@ -445,7 +544,7 @@ Check for local Postgres availability …
       <p class="lede">파일을 넣어두는 곳인데, <strong>누가 · 언제 · 무엇을 · 왜</strong> 바꿨는지 전부 남습니다.</p>
       <div class="grid g2">
         <div class="card"><h3>되돌릴 수 있습니다</h3><p>잘못 고쳐도 어제 상태로 돌아갑니다. 덮어쓰기로 날아가는 일이 없습니다.</p></div>
-        <div class="card"><h3>이유가 남습니다</h3><p>“3주 전에 왜 이렇게 바꿨지?” 에 답할 수 있습니다. 바꿀 때마다 이유를 같이 적기 때문입니다.</p></div>
+        <div class="card"><h3>이유가 남습니다</h3><p>“3주 전에 왜 이렇게 바꿨지?”에 답할 수 있습니다. 바꿀 때마다 이유를 같이 적기 때문입니다.</p></div>
       </div>
       <div class="callout">
         <h3>비유하자면</h3>
@@ -457,14 +556,36 @@ Check for local Postgres availability …
     </div>
   </section>
 
-  <!-- 7 ─────────────────────────────────────────────── -->
+  <section class="slide" data-sec="3 · 도구">
+    <div class="inner">
+      <div class="eyebrow">01 · GitHub — 시작하기</div>
+      <h2>무료 계정 만들기</h2>
+      <div class="steps">
+        <div class="s"><b>1</b><div><b class="t">github.com 접속</b>
+          <span>오른쪽 위 <span class="m">Sign up</span> 클릭</span></div></div>
+        <div class="s"><b>2</b><div><b class="t">이메일 · 비밀번호 · 사용자명 입력</b>
+          <span>사용자명은 나중에 주소에 쓰이니 알아보기 쉽게</span></div></div>
+        <div class="s"><b>3</b><div><b class="t">이메일 인증</b>
+          <span>받은 메일에서 확인하면 끝</span></div></div>
+      </div>
+      <div class="callout">
+        <h3>무료 플랜으로 충분합니다</h3>
+        <p><strong>비공개 저장소 개수 무제한, 협업 인원 무제한.</strong>
+          이 프로젝트도 무료 플랜 범위 안에서 돌아갑니다.
+          유료가 필요해지는 건 비공개 저장소로 웹페이지를 띄우는 것 같은 특수한 경우입니다.</p>
+      </div>
+      <p class="tiny">회사 이메일로 가입하면 나중에 회사 조직 계정에 연결할 수 있습니다.
+        가격 정책은 바뀌므로 가입 시점에 확인해 보세요.</p>
+    </div>
+  </section>
+
   <section class="slide" data-sec="3 · 도구">
     <div class="inner">
       <div class="eyebrow">02 · Claude Code</div>
       <h2>말로 시키는 개발 조수</h2>
       <p class="lede">한국어로 시키면 프로그램 코드를 <strong>직접 읽고, 고치고, 검사까지</strong> 합니다.</p>
       <div class="rows">
-        <div class="row"><span class="k">사람이 말합니다</span><span class="v dim">“팩트시트에서 한국 종목만 뽑아줘”</span></div>
+        <div class="row"><span class="k">사람이 말합니다</span><span class="v dim">“이 문서대로 구현해줘”</span></div>
         <div class="row"><span class="k">조수가 코드를 씁니다</span><span class="v dim">파일을 읽고 고침</span></div>
         <div class="row"><span class="k">스스로 검사합니다</span><span class="v">205개 항목 통과 확인</span></div>
         <div class="row"><span class="k">기록을 남깁니다</span><span class="v dim">GitHub에 이유와 함께 저장</span></div>
@@ -472,193 +593,90 @@ Check for local Postgres availability …
       <div class="callout warn">
         <h3>혼자 결정하지 않습니다</h3>
         <p>바꾼 내용은 <strong>사람이 확인하고 승인</strong>해야 반영됩니다.
-          이번에도 판단이 애매한 지점에서는 “이렇게 할까요, 저렇게 할까요” 묻고 진행했습니다.</p>
+          판단이 애매한 지점에서는 “이렇게 할까요, 저렇게 할까요” 물어봅니다.</p>
       </div>
     </div>
   </section>
 
-  <!-- 8 ─────────────────────────────────────────────── -->
   <section class="slide" data-sec="3 · 도구">
     <div class="inner">
       <div class="eyebrow">03 · Railway</div>
-      <h2>24시간 켜져 있는 컴퓨터</h2>
-      <p class="lede">내 노트북을 닫아도 프로그램이 계속 돌아야 합니다. 그 역할을 대신 해주는 서비스입니다.</p>
-      <div class="grid g2">
-        <div class="card"><h3>매일 아침 7시</h3><p>자료를 수집합니다. 사람이 아무것도 안 해도 알아서 돕니다.</p></div>
-        <div class="card"><h3>항상 켜진 웹사이트</h3><p>그 결과를 보는 화면을 띄웁니다. 주소만 알면 휴대폰으로도 볼 수 있습니다.</p></div>
+      <h2>내 컴퓨터 대신<br>프로그램을 돌려주는 곳</h2>
+      <p class="lede">노트북을 닫아도 매일 아침 자료가 모여 있어야 합니다.
+        그러려면 <strong>절대 안 꺼지는 컴퓨터</strong>가 필요합니다.</p>
+      <div class="rows">
+        <div class="row"><span class="k">GitHub에 코드를 올리면</span><span class="v dim">알아서 받아서 실행합니다</span></div>
+        <div class="row"><span class="k">항상 켜두기</span><span class="v">웹사이트(대시보드)</span></div>
+        <div class="row"><span class="k">정해진 시각에만 실행</span><span class="v">매일 아침 7시 자료 수집</span></div>
+        <div class="row"><span class="k">데이터베이스</span><span class="v dim">클릭 한 번으로 붙습니다</span></div>
       </div>
-      <div class="callout">
-        <h3>비유하자면</h3>
-        <p>사무실에 컴퓨터 한 대를 두고 <strong>절대 안 끄는 것</strong>과 같습니다.
-          다만 그 컴퓨터를 우리가 사거나 관리하지 않고 빌려 씁니다.</p>
-      </div>
+      <p>우리 서비스는 <strong>이 두 가지를 한 프로젝트 안에서</strong> 돌립니다 —
+        매일 새벽에 자료를 모으는 쪽과, 그 결과를 보여주는 웹사이트 쪽.</p>
     </div>
   </section>
 
-  <!-- 9 ─────────────────────────────────────────────── -->
+  <section class="slide" data-sec="3 · 도구">
+    <div class="inner">
+      <div class="eyebrow">03 · Railway — 왜 이걸 골랐나</div>
+      <h2>비슷한 서비스가 여럿 있습니다</h2>
+      <div class="tw">
+        <table>
+          <thead><tr><th>서비스</th><th>성격</th><th>이 프로젝트에는</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Railway</strong></td><td>설정 최소화, DB 내장</td><td><span class="pill">선택</span></td></tr>
+            <tr><td>Render</td><td>비슷함, 무료 등급 있음</td><td>충분히 대안</td></tr>
+            <tr><td>Fly.io</td><td>전 세계 배포, 더 기술적</td><td>과한 편</td></tr>
+            <tr><td>Heroku</td><td>원조 격, 무료 등급 없어짐</td><td>비용 부담</td></tr>
+            <tr><td>Vercel · Netlify</td><td>웹사이트에 특화</td><td>정기 실행·DB 약함</td></tr>
+            <tr><td>AWS · GCP</td><td>다 되지만 설정이 복잡</td><td>전담 인력 필요</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="tiny">가격과 무료 등급은 자주 바뀝니다. 실제 도입 전에 확인이 필요합니다.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-sec="3 · 도구">
+    <div class="inner">
+      <div class="eyebrow">03 · Railway — 장점</div>
+      <h2>이 프로젝트에 맞았던 이유</h2>
+      <div class="grid g2">
+        <div class="card"><h3>설정할 게 거의 없습니다</h3>
+          <p>GitHub 저장소를 연결하면 무슨 언어인지 알아서 알아보고 실행합니다.</p></div>
+        <div class="card"><h3>데이터베이스가 클릭 한 번</h3>
+          <p>따로 계약하고 설정할 필요 없이 붙습니다. 접속 정보도 자동으로 전달됩니다.</p></div>
+        <div class="card"><h3>정기 실행 + 웹사이트를 한곳에</h3>
+          <p>“매일 모으고, 항상 보여준다”가 우리 요구사항이었는데 정확히 그 조합입니다.</p></div>
+        <div class="card"><h3>설정도 코드와 함께 보관</h3>
+          <p>실행 방식을 파일로 적어두면 GitHub에 같이 기록됩니다. 누가 언제 바꿨는지 남습니다.</p></div>
+      </div>
+      <p class="tiny">단점도 있습니다 — 무료로 계속 쓰긴 어렵고 사용한 만큼 과금됩니다.
+        규모가 아주 커지면 AWS 같은 쪽이 유리해집니다. 지금 규모에는 과합니다.</p>
+    </div>
+  </section>
+
   <section class="slide" data-sec="3 · 도구">
     <div class="inner">
       <div class="eyebrow">셋이 맞물리는 방식</div>
       <h2>사람 → 조수 → 보관 → 실행</h2>
       <div class="flow">
-        <div class="step"><b>사람</b><span>한국어로 지시하고, 결과를 승인합니다</span></div>
+        <div class="step"><b>사람</b><span>한국어로 지시하고<br>결과를 승인합니다</span></div>
         <div class="arrow">→</div>
-        <div class="step"><b>Claude Code</b><span>코드를 고치고 스스로 검사합니다</span></div>
+        <div class="step"><b>Claude Code</b><span>코드를 고치고<br>스스로 검사합니다</span></div>
         <div class="arrow">→</div>
-        <div class="step"><b>GitHub</b><span>바뀐 내용과 이유를 보관합니다</span></div>
+        <div class="step"><b>GitHub</b><span>바뀐 내용과 이유를<br>보관합니다</span></div>
         <div class="arrow">→</div>
-        <div class="step"><b>Railway</b><span>매일 실행하고 화면을 띄웁니다</span></div>
+        <div class="step"><b>Railway</b><span>매일 실행하고<br>화면을 띄웁니다</span></div>
       </div>
       <p>이 세미나 자료도 같은 흐름으로 만들어졌습니다.
-        지시 → 작성 → 검사 → 보관 → 배포까지 전부요.</p>
+        지시 → 작성 → 검사 → 보관까지 전부요.</p>
     </div>
   </section>
 
-  <!-- 10 ────────────────────────────────────────────── -->
-  <section class="slide" data-sec="4 · 구조">
+  <!-- ── Part 4 · 현황과 다음 ───────────────────────── -->
+  <section class="slide" data-sec="4 · 현황">
     <div class="inner">
-      <div class="eyebrow">Part 4 · 매일 하는 일</div>
-      <h2>매일 같은 일을 반복합니다</h2>
-      <div class="flow">
-        <div class="step"><b>1 · 모으기</b><span>공시·소개서·홈페이지를 받아옵니다</span></div>
-        <div class="arrow">→</div>
-        <div class="step"><b>2 · 원본 보관</b><span>받은 파일을 그대로 저장합니다</span></div>
-        <div class="arrow">→</div>
-        <div class="step"><b>3 · 표로 정리</b><span>종목·비중·날짜를 뽑아냅니다</span></div>
-        <div class="arrow">→</div>
-        <div class="step"><b>4 · 변화 기록</b><span>지난번과 달라진 점을 남깁니다</span></div>
-      </div>
-      <div class="callout">
-        <h3>2번이 중요합니다 — 원본을 통째로 남깁니다</h3>
-        <p>나중에 “뽑아내는 방식”을 고쳤을 때, <strong>상대 회사에 다시 요청하지 않고</strong>
-          보관해둔 원본으로 다시 처리하면 됩니다. 이미 사라진 자료도 우리에겐 남아 있습니다.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- 11 ────────────────────────────────────────────── -->
-  <section class="slide" data-sec="4 · 구조">
-    <div class="inner">
-      <div class="eyebrow">Part 4 · 원칙</div>
-      <h2>모르는 건 비워둡니다</h2>
-      <p class="lede">회사를 식별하는 고유번호를 모를 때, <strong>추측해서 채우지 않습니다.</strong></p>
-      <div class="verdict">
-        <div class="yes"><span class="mark">○</span><div>
-          <b>비워두면</b><span class="d">화면에 “설정 안 됨”이라고 표시됩니다. 누가 봐도 채워야 할 게 보입니다.</span></div></div>
-        <div class="no"><span class="mark">✕</span><div>
-          <b>잘못 채우면</b><span class="d">엉뚱한 회사 자료가 이 회사 이름으로 올라옵니다.
-            그런데 <strong>화면상으로는 전혀 문제가 없어 보입니다.</strong></span></div></div>
-      </div>
-      <p>비어 있는 건 언제든 채울 수 있지만, 틀린 채로 굴러간 건 알아채기가 훨씬 어렵습니다.
-        그래서 <strong>빈칸을 택했습니다.</strong></p>
-    </div>
-  </section>
-
-  <!-- 12 ────────────────────────────────────────────── -->
-  <section class="slide" data-sec="5 · 결과">
-    <div class="inner">
-      <div class="eyebrow">Part 5 · 실제 결과</div>
-      <h2>Mawer 펀드 소개서에서<br>실제로 나온 것</h2>
-      <div class="tw">
-        <table>
-          <thead><tr><th>종목</th><th>펀드</th><th class="n">비중</th><th class="n">환산 금액</th><th>기준일</th></tr></thead>
-          <tbody>
-            <tr><td><strong>SK hynix</strong></td><td>Mawer International Equity</td><td class="n">3.00%</td><td class="n">약 2,170억 원</td><td class="m">2026-06-30</td></tr>
-            <tr><td><strong>삼성전자</strong></td><td>Mawer International Equity</td><td class="n">2.80%</td><td class="n">약 2,030억 원</td><td class="m">2026-06-30</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="callout">
-        <h3>비중만으로는 부족합니다</h3>
-        <p>“3%”만 보면 3천만 원인지 3천억 원인지 알 수 없습니다.
-          그래서 <strong>펀드 크기를 곱한 금액</strong>을 항상 같이 보여줍니다.
-          영업에서 실제로 쓰는 숫자는 이쪽입니다.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- 13 ────────────────────────────────────────────── -->
-  <section class="slide" data-sec="6 · 주의">
-    <div class="inner">
-      <div class="eyebrow">Part 6 · 가장 중요</div>
-      <h2>운용사는 보유 종목을<br>전부 공개하지 않습니다</h2>
-      <p class="lede">펀드 소개서에는 보통 <strong>상위 10~25개만</strong> 적혀 있습니다.
-        Mawer 펀드의 실제 숫자입니다.</p>
-      <div id="blocks" aria-hidden="true"></div>
-      <div class="legend">
-        <span><b class="sw seen"></b>소개서에 적힌 24개 — 우리가 보는 것</span>
-        <span><b class="sw hidden"></b>안 적힌 48개 — 약 3조 원어치</span>
-      </div>
-      <div class="rows">
-        <div class="row"><span class="k">펀드 전체 크기</span><span class="v">약 7조 원</span></div>
-        <div class="row"><span class="k">보이지 않는 부분</span><span class="v">41.3% · 약 3조 원</span></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 14 ────────────────────────────────────────────── -->
-  <section class="slide" data-sec="6 · 주의">
-    <div class="inner">
-      <div class="eyebrow">Part 6 · 읽는 법</div>
-      <h2>그래서 이렇게 읽어야 합니다</h2>
-      <div class="verdict">
-        <div class="yes"><span class="mark">○</span><div>
-          <b>“최소 이만큼은 갖고 있다”</b><span class="d">맞는 해석입니다. 확인된 하한입니다.</span></div></div>
-        <div class="no"><span class="mark">✕</span><div>
-          <b>“표에 없으니 안 갖고 있다”</b><span class="d">틀린 해석입니다. 그냥 목록 밖일 수 있습니다.</span></div></div>
-      </div>
-      <div class="callout warn">
-        <h3>시험 성적으로 비유하면</h3>
-        <p>반에서 <strong>상위 5등만 발표</strong>했을 때, 6등인 친구가 “시험을 안 봤다”는 뜻은 아닙니다.
-          발표 목록에 없을 뿐입니다.</p>
-      </div>
-      <p><strong>영업에서 이걸 틀리면 실제 고객을 그냥 지나칩니다.</strong>
-        그래서 화면 곳곳에 같은 경고를 반복해 적어뒀습니다.</p>
-    </div>
-  </section>
-
-  <!-- 15 ────────────────────────────────────────────── -->
-  <section class="slide" data-sec="6 · 주의">
-    <div class="inner">
-      <div class="eyebrow">Part 6 · 다만</div>
-      <h2>안 보이는 것의 크기는<br>알고 있습니다</h2>
-      <p class="lede">안 적힌 종목이라도 <strong>소개서에 적힌 가장 작은 종목보다 클 수는 없습니다.</strong>
-        더 컸다면 목록에 들어갔을 테니까요.</p>
-      <div class="rows">
-        <div class="row"><span class="k">적힌 것 중 가장 작은 비중</span><span class="v">1.6%</span></div>
-        <div class="row"><span class="k">금액으로</span><span class="v">약 1,160억 원</span></div>
-        <div class="row"><span class="k">그러므로 안 보이는 종목은</span><span class="v">전부 이보다 작음</span></div>
-      </div>
-      <p>즉 <strong>“1,600억 원어치를 갖고 있는데 우리가 놓쳤다”는 일은 생기지 않습니다.</strong>
-        사각지대는 있지만, 그 사각지대의 크기를 알고 있다는 뜻입니다.</p>
-    </div>
-  </section>
-
-  <!-- 16 ────────────────────────────────────────────── -->
-  <section class="slide" data-sec="6 · 주의">
-    <div class="inner">
-      <div class="eyebrow">Part 6 · 화면에서 읽는 법</div>
-      <h2>종목마다 “근거”가 붙습니다</h2>
-      <p>자료마다 알려주는 게 달라서, <strong>무엇으로 확인된 것인지</strong>를 같이 표시합니다.</p>
-      <div class="tw">
-        <table>
-          <thead><tr><th>표시</th><th>뜻</th><th>영업에서</th></tr></thead>
-          <tbody>
-            <tr><td><span class="pill">보유 확인 + 규모</span></td><td>두 자료 모두에 나옴</td><td>금액까지 확실합니다</td></tr>
-            <tr><td><span class="pill o">하한 미만</span></td><td>갖고 있는 건 확실하나 소개서엔 안 적힘</td><td><strong>작지만 실재하는 고객</strong></td></tr>
-            <tr><td><span class="pill t">팩트시트만</span></td><td>최근에 새로 산 종목</td><td>정상입니다</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="tiny">가운데 줄이 특히 유용합니다. 소개서만 보면 <strong>존재 자체를 모를</strong> 포지션인데,
-        의결권 행사 기록을 겹쳐 보면 드러납니다.</p>
-    </div>
-  </section>
-
-  <!-- 17 ────────────────────────────────────────────── -->
-  <section class="slide" data-sec="7 · 현황">
-    <div class="inner">
-      <div class="eyebrow">Part 7 · 현황</div>
+      <div class="eyebrow">Part 4 · 현황</div>
       <h2>지금 추적 중인 곳</h2>
       <div class="tw">
         <table>
@@ -672,47 +690,43 @@ Check for local Postgres availability …
         </table>
       </div>
       <p class="tiny">“쉬는 중”은 삭제가 아닙니다. 모아둔 자료는 그대로 있고, 설정 한 줄이면 바로 돌아옵니다.
-        담당이 바뀌면 알려주시면 됩니다.</p>
+        <strong>담당이 바뀌거나 새로 맡으신 곳이 있으면 알려주세요.</strong></p>
     </div>
   </section>
 
-  <!-- 18 ────────────────────────────────────────────── -->
-  <section class="slide" data-sec="7 · 현황">
+  <section class="slide" data-sec="4 · 현황">
     <div class="inner">
-      <div class="eyebrow">Part 7 · 다음</div>
+      <div class="eyebrow">Part 4 · 부탁</div>
       <h2>도와주실 수 있는 것</h2>
-      <div class="grid g2">
-        <div class="card"><h3>펀드 소개서 주소</h3>
-          <p>담당 운용사 홈페이지에서 International · Global · Emerging Markets 펀드의
-            소개서(PDF) 링크를 알려주시면 바로 수집이 시작됩니다.</p></div>
-        <div class="card"><h3>의결권 행사 기록</h3>
-          <p>같은 페이지에 있는 경우가 많습니다. 이게 있으면 <strong>소개서에 안 적힌 작은 포지션</strong>까지 보입니다.</p></div>
+      <div class="grid g3">
+        <div class="card"><span class="num">01</span><h3>담당 운용사</h3>
+          <p>추적했으면 하는 운용사를 알려주세요. 회사 이름만 주시면 됩니다.</p></div>
+        <div class="card"><span class="num">02</span><h3>펀드 소개서 주소</h3>
+          <p>운용사 홈페이지에서 펀드 소개서(PDF) 링크를 찾으시면 알려주세요.</p></div>
+        <div class="card"><span class="num">03</span><h3>이상한 화면</h3>
+          <p>숫자가 이상하거나 헷갈리면 <strong>사진 찍어 보내주세요.</strong> 그게 제일 빠릅니다.</p></div>
       </div>
-      <div class="callout">
-        <h3>확인 중인 것 하나</h3>
-        <p>Kopernik이 미국 등록 펀드를 운용한다면, <strong>보유 종목 전체가 공개</strong>되는 서류가 따로 있습니다.
-          그러면 앞에서 본 “안 보이는 3조 원”이 그 운용사에 한해 사라집니다.</p>
-      </div>
+      <p>세 번째가 특히 중요합니다. 만든 사람은 자기 화면의 문제를 잘 못 봅니다 —
+        실제로 이번에도 <strong>여러분 같은 사용자의 지적으로</strong> 여러 건이 고쳐졌습니다.</p>
     </div>
   </section>
 
-  <!-- 19 ────────────────────────────────────────────── -->
   <section class="slide" data-sec="정리">
     <div class="inner">
       <div class="eyebrow">정리</div>
-      <h2>오늘 하나만 가져가신다면</h2>
-      <div class="callout warn">
-        <h3>표에 없다고 “안 갖고 있다”가 아닙니다</h3>
-        <p>운용사는 상위 몇 개만 공개합니다. 이 화면이 말할 수 있는 건
-          <strong>“최소한 이만큼”</strong>이지 <strong>“이게 전부”</strong>가 아닙니다.</p>
-      </div>
+      <h2>오늘 세 가지만</h2>
       <div class="rows">
-        <div class="row"><span class="k">GitHub</span><span class="v dim">기록이 남는 공유 폴더</span></div>
-        <div class="row"><span class="k">Claude Code</span><span class="v dim">말로 시키는 개발 조수</span></div>
-        <div class="row"><span class="k">Railway</span><span class="v dim">24시간 켜져 있는 컴퓨터</span></div>
-        <div class="row"><span class="k">화면에서 볼 것</span><span class="v">비중 · 환산 금액 · 근거</span></div>
+        <div class="row"><span class="k">1 &nbsp;&nbsp;화면에서 볼 것</span><span class="v">운용규모 · 미국 보유종목 · 변화</span></div>
+        <div class="row"><span class="k">2 &nbsp;&nbsp;만드는 방법</span><span class="v">채팅 → 문서 → 구현</span></div>
+        <div class="row"><span class="k">3 &nbsp;&nbsp;한국 보유는 “최소한”</span><span class="v dim">표에 없다 ≠ 미보유</span></div>
       </div>
-      <p class="lede">질문 주세요. 화면에서 이상하게 보이는 게 있으면 그것도 알려주시면 고치겠습니다.</p>
+      <div class="callout">
+        <h3>가장 하고 싶은 말</h3>
+        <p>이건 개발자만 할 수 있는 일이 아닙니다.
+          <strong>업무를 가장 잘 아는 사람이 만들 때 제일 쓸모 있는 도구가 나옵니다.</strong>
+          필요한 게 있으면 말씀해 주세요. 같이 만들면 됩니다.</p>
+      </div>
+      <p class="lede">질문 주세요.</p>
     </div>
   </section>
 
@@ -777,13 +791,6 @@ Check for local Postgres availability …
     x0 = null;
   }, {passive:true});
 
-  // The visibility figure: 24 disclosed, 48 not.
-  var wrap = document.getElementById("blocks");
-  if(wrap){
-    var html = "";
-    for(var k = 0; k < 72; k++) html += '<i class="' + (k < 24 ? "seen" : "hidden") + '"></i>';
-    wrap.innerHTML = html;
-  }
 
   var start = parseInt((location.hash || "").replace("#", ""), 10);
   show(isNaN(start) ? 0 : start - 1);
