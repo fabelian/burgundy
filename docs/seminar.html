@@ -147,6 +147,47 @@ code{background:color-mix(in srgb,var(--wine) 9%,transparent); color:var(--wine)
 .legend b.sw.seen{background:var(--wine);}
 .legend b.sw.hidden{border:1px solid var(--rule);}
 
+/* ── Chat transcript — the real prompts, reproduced ────────── */
+.chat{display:flex; flex-direction:column; gap:clamp(9px,1.4vh,15px);}
+.chat .said{
+  align-self:flex-end; max-width:min(100%,60ch);
+  background:color-mix(in srgb,var(--wine) 10%,var(--card));
+  border:1px solid color-mix(in srgb,var(--wine) 22%,var(--line));
+  border-radius:16px 16px 5px 16px; padding:clamp(12px,1.7vw,18px) clamp(14px,2vw,22px);
+  font-size:clamp(14px,1.5vw,18px); color:var(--ink); line-height:1.55;
+}
+.chat .said::before{
+  content:"입력한 내용"; display:block; font-family:var(--mono); font-size:10px;
+  letter-spacing:.14em; color:var(--wine); margin-bottom:6px; text-transform:uppercase;
+}
+.chat .replied{
+  align-self:flex-start; max-width:min(100%,64ch); padding-left:clamp(12px,1.6vw,18px);
+  border-left:2px solid var(--rule);
+  font-size:clamp(13px,1.45vw,17px); color:var(--ink-soft); line-height:1.6;
+  display:flex; flex-direction:column; gap:7px;
+}
+.chat .replied::before{
+  content:"돌아온 답"; font-family:var(--mono); font-size:10px; letter-spacing:.14em;
+  color:var(--muted); text-transform:uppercase;
+}
+.chat .replied em{font-style:normal; color:var(--ink); font-weight:700;
+                  background:color-mix(in srgb,var(--ochre) 20%,transparent);
+                  padding:.08em .28em; border-radius:3px; box-decoration-break:clone;}
+.file{
+  display:inline-flex; align-items:center; gap:9px; align-self:flex-start;
+  font-family:var(--mono); font-size:clamp(12px,1.3vw,15px);
+  background:var(--card); border:1px solid var(--line); border-radius:9px;
+  padding:9px 14px; color:var(--ink);
+}
+.file b{color:var(--muted); font-weight:400; font-size:.85em;}
+.log{
+  font-family:var(--mono); font-size:clamp(11px,1.25vw,14px); line-height:1.85;
+  background:var(--card); border:1px solid var(--line); border-radius:10px;
+  padding:clamp(12px,1.7vw,18px); color:var(--ink-soft); overflow-x:auto;
+}
+.log .add{color:var(--good); font-weight:600;}
+.log .say{color:var(--ink);}
+
 /* ── Flow diagram ──────────────────────────────────────────── */
 .flow{display:flex; align-items:stretch; gap:clamp(6px,1.2vw,14px); flex-wrap:wrap;}
 .flow .step{
@@ -225,13 +266,14 @@ td strong{color:var(--wine);}
   <section class="slide" data-sec="시작">
     <div class="inner">
       <div class="eyebrow">오늘 다룰 것</div>
-      <h2>다섯 부분입니다</h2>
+      <h2>여섯 부분입니다</h2>
       <div class="rows">
         <div class="row"><span class="k">1 &nbsp;&nbsp;우리가 풀려는 문제</span><span class="v dim">왜 필요한가</span></div>
-        <div class="row"><span class="k">2 &nbsp;&nbsp;도구 세 가지</span><span class="v dim">GitHub · Claude Code · Railway</span></div>
-        <div class="row"><span class="k">3 &nbsp;&nbsp;어떻게 만들었나</span><span class="v dim">자료 수집 구조</span></div>
-        <div class="row"><span class="k">4 &nbsp;&nbsp;화면 읽는 법</span><span class="v dim">실무</span></div>
-        <div class="row"><span class="k">5 &nbsp;&nbsp;꼭 알아야 할 한 가지</span><span class="v">가장 중요</span></div>
+        <div class="row"><span class="k">2 &nbsp;&nbsp;어떻게 만들었나</span><span class="v">실제 대화 내용</span></div>
+        <div class="row"><span class="k">3 &nbsp;&nbsp;도구 세 가지</span><span class="v dim">GitHub · Claude Code · Railway</span></div>
+        <div class="row"><span class="k">4 &nbsp;&nbsp;매일 하는 일</span><span class="v dim">자료 수집 구조</span></div>
+        <div class="row"><span class="k">5 &nbsp;&nbsp;실제 결과와 화면</span><span class="v dim">실무</span></div>
+        <div class="row"><span class="k">6 &nbsp;&nbsp;꼭 알아야 할 한 가지</span><span class="v">가장 중요</span></div>
       </div>
       <p class="tiny">기술 배경 지식은 필요 없습니다. 5번을 모르고 쓰면 영업 판단이 틀어질 수 있어서, 그 하나만 확실히 남기는 게 오늘 목표입니다.</p>
     </div>
@@ -271,10 +313,120 @@ td strong{color:var(--wine);}
     </div>
   </section>
 
-  <!-- 5 ─────────────────────────────────────────────── -->
-  <section class="slide" data-sec="2 · 도구">
+  <!-- ── Part 2 · 실제 개발 과정 ─────────────────────── -->
+  <section class="slide" data-sec="2 · 개발 과정">
     <div class="inner">
-      <div class="eyebrow">Part 2 · 도구 세 가지</div>
+      <div class="eyebrow">Part 2 · 어떻게 만들었나</div>
+      <h2>코드를 한 줄도<br>직접 쓰지 않았습니다</h2>
+      <p class="lede">개발자에게 의뢰한 것도 아닙니다.
+        <strong>Claude에게 한국어로 말해서</strong> 만들었습니다. 세 단계였습니다.</p>
+      <div class="rows">
+        <div class="row"><span class="k">1 &nbsp;&nbsp;무엇을 만들지 상의</span><span class="v dim">채팅으로 설계 논의</span></div>
+        <div class="row"><span class="k">2 &nbsp;&nbsp;설계도를 문서로</span><span class="v dim">스펙 파일 작성</span></div>
+        <div class="row"><span class="k">3 &nbsp;&nbsp;그대로 구현</span><span class="v">Claude Code가 코드 작성</span></div>
+      </div>
+      <p class="tiny">다음 세 장은 그때 실제로 오간 내용입니다.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-sec="2 · 개발 과정">
+    <div class="inner">
+      <div class="eyebrow">1단계 · 무엇을 만들지 상의</div>
+      <h2>그냥 하고 싶은 걸<br>적었습니다</h2>
+      <div class="chat">
+        <div class="said">특정 자산운용사(burgandy)의 AUM 추이와 펀드의 주요 구성 주식들,
+          주요 인사들, 보유한 한국 주식 등을 정기적으로 트래킹하는 서비스를 만들고 싶어.
+          이 자료들이 저장되고 이력을 트래킹하고 싶은데 어떻게 하면 좋을지 깊게 생각해줘.
+          GitHub에 해당 코드를 올리고 railway에 연결된 cron과 dashboard로 구성하고 싶어</div>
+        <div class="replied">
+          <span>Burgundy Asset Management Ltd.(토론토)는 SEC CIK 0001315868으로
+            13F-HR을 분기마다 제출하고 있어서 미국 상장분 보유 종목은 안정적으로 추적할 수 있습니다.</span>
+          <span>다만 설계상 가장 중요한 포인트부터 짚을게요:
+            <em>13F에는 미국 상장 증권만 나오기 때문에 한국 주식은 별도 소스가 필요합니다.</em></span>
+          <span>소스 → 저장 → 이력의 3계층으로 설계하는 걸 권합니다.</span>
+        </div>
+      </div>
+      <p class="tiny">기술 용어를 쓸 필요가 없었습니다. 회사 이름과 원하는 것만 적었습니다.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-sec="2 · 개발 과정">
+    <div class="inner">
+      <div class="eyebrow">1단계 · 그때 나온 한 문장</div>
+      <h2>이 프로젝트 전체가<br>여기서 결정됐습니다</h2>
+      <div class="callout warn">
+        <h3>“13F에는 미국 상장 증권만 나오기 때문에<br>한국 주식은 별도 소스가 필요합니다”</h3>
+      </div>
+      <p>맨 처음 대화에서 나온 말입니다. 그리고 실제로 그랬습니다 —
+        미국 서류를 아무리 뒤져도 삼성전자는 나오지 않습니다. <strong>미국 증시에 없으니까요.</strong></p>
+      <p>그래서 한국 쪽 소스를 따로 찾아야 했고, 그 과정에서 앞에서 본
+        <strong>DART 5% 함정</strong>을 만났고, 결국 <strong>펀드 소개서</strong>에 도달했습니다.</p>
+      <p class="tiny">→ 첫 대화에서 방향이 잡히면 나머지가 훨씬 빨라집니다.
+        “일단 만들어줘”보다 “이게 왜 어려운지 먼저 짚어줘”가 좋은 이유입니다.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-sec="2 · 개발 과정">
+    <div class="inner">
+      <div class="eyebrow">2단계 · 설계도를 문서로</div>
+      <h2>대화 내용을<br>설계 문서로 만들었습니다</h2>
+      <div class="chat">
+        <div class="said">위의 내용을 claude code에서 수행할 수 있게 md 파일을 만들어줘</div>
+        <div class="replied">
+          <span>스펙 문서를 만들었습니다. 레포 루트에 넣고 Claude Code에서
+            “이 스펙대로 Phase 1부터 구현해줘”라고 시작하면 됩니다.</span>
+        </div>
+      </div>
+      <div class="file">📄 burgundy-tracker-spec.md <b>· 설계 문서</b></div>
+      <p>여기 담긴 것: 자료를 어떻게 저장할지, 기관별로 어떻게 받아올지,
+        데이터베이스 설계 전체, 매일 아침 7시 실행 설정,
+        <strong>1~6단계 구현 순서와 완료 체크리스트.</strong></p>
+      <p class="tiny">사람으로 치면 <strong>“상세 업무 지시서”</strong>입니다.
+        말로만 시키면 매번 달라지지만, 문서로 남기면 같은 기준으로 계속 이어갈 수 있습니다.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-sec="2 · 개발 과정">
+    <div class="inner">
+      <div class="eyebrow">3단계 · 구현</div>
+      <h2>지시서를 넘기고<br>한 문장만 말했습니다</h2>
+      <div class="chat">
+        <div class="said">첨부된 파일대로 구현해줘</div>
+      </div>
+      <div class="log">
+<span class="say">The repo is empty. I'll implement the full spec phase by phase.</span><br>
+<span class="say">Let me start with Phase 1 — project skeleton, config, and DB layer.</span><br><br>
+파일 2개 생성함 &nbsp;<span class="add">+92</span><br>
+파일 4개 생성함 &nbsp;<span class="add">+193</span><br>
+Check for local Postgres availability …
+      </div>
+      <p>빈 폴더에서 시작해서 <strong>스스로 순서를 잡고, 파일을 만들고, 검사까지</strong> 진행했습니다.
+        사람은 중간중간 확인하고 승인만 했습니다.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-sec="2 · 개발 과정">
+    <div class="inner">
+      <div class="eyebrow">그 뒤로는</div>
+      <h2>대화하면서 고쳐 나갑니다</h2>
+      <p class="lede">한 번 만들고 끝이 아닙니다. 쓰면서 이상한 걸 발견하면 <strong>말로 고칩니다.</strong></p>
+      <div class="chat">
+        <div class="said">📱 (화면 사진을 찍어 보내며) 여기서 다른 운용사 정보는 보여주지 마</div>
+        <div class="replied">
+          <span>지적하신 대로입니다. 화면이 좁아지면 운용사 이름 칸이 밀려나서,
+            <em>남의 보유 종목이 선택한 운용사 것처럼 읽힙니다.</em> 잘못 만들었습니다. 고치겠습니다.</span>
+        </div>
+      </div>
+      <p>실제로 이번에 있었던 일입니다. <strong>휴대폰 화면을 찍어 보내는 것만으로</strong>
+        문제가 확인되고 수정됐습니다.</p>
+      <p class="tiny">이번 작업만으로 수정 20번, 자동 검사 205개 항목 — 언제 왜 바꿨는지 전부 남아 있습니다.</p>
+    </div>
+  </section>
+
+  <!-- ── Part 3 · 도구 ──────────────────────────────── -->
+  <section class="slide" data-sec="3 · 도구">
+    <div class="inner">
+      <div class="eyebrow">Part 3 · 도구 세 가지</div>
       <h2>이름만 낯설 뿐입니다</h2>
       <div class="grid g3">
         <div class="card"><span class="num">01</span><h3>GitHub</h3><p>기록이 남는 <strong>공유 폴더</strong></p></div>
@@ -286,7 +438,7 @@ td strong{color:var(--wine);}
   </section>
 
   <!-- 6 ─────────────────────────────────────────────── -->
-  <section class="slide" data-sec="2 · 도구">
+  <section class="slide" data-sec="3 · 도구">
     <div class="inner">
       <div class="eyebrow">01 · GitHub</div>
       <h2>기록이 남는 공유 폴더</h2>
@@ -306,7 +458,7 @@ td strong{color:var(--wine);}
   </section>
 
   <!-- 7 ─────────────────────────────────────────────── -->
-  <section class="slide" data-sec="2 · 도구">
+  <section class="slide" data-sec="3 · 도구">
     <div class="inner">
       <div class="eyebrow">02 · Claude Code</div>
       <h2>말로 시키는 개발 조수</h2>
@@ -326,7 +478,7 @@ td strong{color:var(--wine);}
   </section>
 
   <!-- 8 ─────────────────────────────────────────────── -->
-  <section class="slide" data-sec="2 · 도구">
+  <section class="slide" data-sec="3 · 도구">
     <div class="inner">
       <div class="eyebrow">03 · Railway</div>
       <h2>24시간 켜져 있는 컴퓨터</h2>
@@ -344,7 +496,7 @@ td strong{color:var(--wine);}
   </section>
 
   <!-- 9 ─────────────────────────────────────────────── -->
-  <section class="slide" data-sec="2 · 도구">
+  <section class="slide" data-sec="3 · 도구">
     <div class="inner">
       <div class="eyebrow">셋이 맞물리는 방식</div>
       <h2>사람 → 조수 → 보관 → 실행</h2>
@@ -363,9 +515,9 @@ td strong{color:var(--wine);}
   </section>
 
   <!-- 10 ────────────────────────────────────────────── -->
-  <section class="slide" data-sec="3 · 구조">
+  <section class="slide" data-sec="4 · 구조">
     <div class="inner">
-      <div class="eyebrow">Part 3 · 어떻게 만들었나</div>
+      <div class="eyebrow">Part 4 · 매일 하는 일</div>
       <h2>매일 같은 일을 반복합니다</h2>
       <div class="flow">
         <div class="step"><b>1 · 모으기</b><span>공시·소개서·홈페이지를 받아옵니다</span></div>
@@ -385,9 +537,9 @@ td strong{color:var(--wine);}
   </section>
 
   <!-- 11 ────────────────────────────────────────────── -->
-  <section class="slide" data-sec="3 · 구조">
+  <section class="slide" data-sec="4 · 구조">
     <div class="inner">
-      <div class="eyebrow">Part 3 · 원칙</div>
+      <div class="eyebrow">Part 4 · 원칙</div>
       <h2>모르는 건 비워둡니다</h2>
       <p class="lede">회사를 식별하는 고유번호를 모를 때, <strong>추측해서 채우지 않습니다.</strong></p>
       <div class="verdict">
@@ -403,9 +555,9 @@ td strong{color:var(--wine);}
   </section>
 
   <!-- 12 ────────────────────────────────────────────── -->
-  <section class="slide" data-sec="4 · 결과">
+  <section class="slide" data-sec="5 · 결과">
     <div class="inner">
-      <div class="eyebrow">Part 4 · 실제 결과</div>
+      <div class="eyebrow">Part 5 · 실제 결과</div>
       <h2>Mawer 펀드 소개서에서<br>실제로 나온 것</h2>
       <div class="tw">
         <table>
@@ -426,9 +578,9 @@ td strong{color:var(--wine);}
   </section>
 
   <!-- 13 ────────────────────────────────────────────── -->
-  <section class="slide" data-sec="5 · 주의">
+  <section class="slide" data-sec="6 · 주의">
     <div class="inner">
-      <div class="eyebrow">Part 5 · 가장 중요</div>
+      <div class="eyebrow">Part 6 · 가장 중요</div>
       <h2>운용사는 보유 종목을<br>전부 공개하지 않습니다</h2>
       <p class="lede">펀드 소개서에는 보통 <strong>상위 10~25개만</strong> 적혀 있습니다.
         Mawer 펀드의 실제 숫자입니다.</p>
@@ -445,9 +597,9 @@ td strong{color:var(--wine);}
   </section>
 
   <!-- 14 ────────────────────────────────────────────── -->
-  <section class="slide" data-sec="5 · 주의">
+  <section class="slide" data-sec="6 · 주의">
     <div class="inner">
-      <div class="eyebrow">Part 5 · 읽는 법</div>
+      <div class="eyebrow">Part 6 · 읽는 법</div>
       <h2>그래서 이렇게 읽어야 합니다</h2>
       <div class="verdict">
         <div class="yes"><span class="mark">○</span><div>
@@ -466,9 +618,9 @@ td strong{color:var(--wine);}
   </section>
 
   <!-- 15 ────────────────────────────────────────────── -->
-  <section class="slide" data-sec="5 · 주의">
+  <section class="slide" data-sec="6 · 주의">
     <div class="inner">
-      <div class="eyebrow">Part 5 · 다만</div>
+      <div class="eyebrow">Part 6 · 다만</div>
       <h2>안 보이는 것의 크기는<br>알고 있습니다</h2>
       <p class="lede">안 적힌 종목이라도 <strong>소개서에 적힌 가장 작은 종목보다 클 수는 없습니다.</strong>
         더 컸다면 목록에 들어갔을 테니까요.</p>
@@ -483,9 +635,9 @@ td strong{color:var(--wine);}
   </section>
 
   <!-- 16 ────────────────────────────────────────────── -->
-  <section class="slide" data-sec="4 · 결과">
+  <section class="slide" data-sec="6 · 주의">
     <div class="inner">
-      <div class="eyebrow">Part 4 · 화면 읽는 법</div>
+      <div class="eyebrow">Part 6 · 화면에서 읽는 법</div>
       <h2>종목마다 “근거”가 붙습니다</h2>
       <p>자료마다 알려주는 게 달라서, <strong>무엇으로 확인된 것인지</strong>를 같이 표시합니다.</p>
       <div class="tw">
@@ -504,9 +656,9 @@ td strong{color:var(--wine);}
   </section>
 
   <!-- 17 ────────────────────────────────────────────── -->
-  <section class="slide" data-sec="6 · 현황">
+  <section class="slide" data-sec="7 · 현황">
     <div class="inner">
-      <div class="eyebrow">Part 6 · 현황</div>
+      <div class="eyebrow">Part 7 · 현황</div>
       <h2>지금 추적 중인 곳</h2>
       <div class="tw">
         <table>
@@ -525,9 +677,9 @@ td strong{color:var(--wine);}
   </section>
 
   <!-- 18 ────────────────────────────────────────────── -->
-  <section class="slide" data-sec="6 · 현황">
+  <section class="slide" data-sec="7 · 현황">
     <div class="inner">
-      <div class="eyebrow">Part 6 · 다음</div>
+      <div class="eyebrow">Part 7 · 다음</div>
       <h2>도와주실 수 있는 것</h2>
       <div class="grid g2">
         <div class="card"><h3>펀드 소개서 주소</h3>
@@ -573,7 +725,7 @@ td strong{color:var(--wine);}
   <span class="nav">
     <button type="button" id="prev" aria-label="이전 슬라이드">←</button>
     <button type="button" id="next" aria-label="다음 슬라이드">→</button>
-    <button type="button" id="count" aria-label="슬라이드 번호">1 / 19</button>
+    <button type="button" id="count" aria-label="슬라이드 번호">1 / 25</button>
   </span>
 </div>
 
