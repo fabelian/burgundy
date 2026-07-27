@@ -17,12 +17,12 @@ the two US advisers change some of those answers, and that is set out in
 "US-domiciled managers" below.
 
 **DRZ is DePrince, Race & Zollo (Winter Park, FL); Kopernik is Kopernik Global Investors
-(Tampa, FL)** — both confirmed. Firm identity and filing identifiers are separate facts,
-though, and only the first is settled: there is no name-to-CIK resolution anywhere in this
-repo, so `Edgar13FCollector.applies()` still wants the number itself. **CIK, CRD and the
-website URLs stay blank**, and EDGAR, Form ADV and the website scrapes skip both managers
-until each is read off that filer's own documents. A blank shows on the collector panel as
-"not configured"; a wrong CIK shows another firm's portfolio and looks entirely normal.
+(Tampa, FL)** — both confirmed, and **DRZ's CIK `0001008894` is on file**, so its 13F now
+collects. Identifiers arrive one at a time and each is filled in only when supplied: there
+is no name-to-CIK resolution anywhere in this repo, so knowing the firm never starts a
+collector by itself. Kopernik's CIK, both CRDs and both website URLs are still blank, and
+the collectors that need them skip — visible on the panel as "not configured", where a
+wrong CIK would instead show another firm's portfolio and look entirely normal.
 
 What the confirmation *did* unlock is the DART safety net. A deep-value manager running an
 EM strategy is a far likelier 5% filer in a Korean small cap than the large-cap-oriented
