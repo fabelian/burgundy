@@ -41,7 +41,7 @@ def _row(name, weight, as_of=date(2024, 6, 30), scope="top_n", listed=10,
 def _render(**ctx):
     from dashboard.app import templates
 
-    base = {"coverage": [], "evidence": [], "peers": [], "weight_series": {},
+    base = {"coverage": [], "evidence": [], "weight_series": {},
             "kr_series": {}, "history": [], "selected": "burgundy",
             "manager_name": "Test Manager", "configured_funds": 0}
     return templates.get_template("korea.html").render({**base, **ctx})
@@ -69,10 +69,10 @@ def test_the_tab_shows_only_the_selected_managers_holdings(db, manager,
         "SK Hynix Inc"]
 
 
-def test_peers_are_everyone_except_the_selected_manager(db, manager,
-                                                        other_manager):
-    """The comparison survives, but in a table where every row belongs to
-    someone else by construction — so nothing can be misread even scrolled."""
+def test_no_other_managers_data_reaches_the_page(db, manager, other_manager):
+    """A peer-comparison card was tried and removed: the tab is read one manager
+    at a time, so another firm's holdings on the page were noise at best and a
+    misattribution risk at worst. Nothing of theirs may appear."""
     a = _fund(db, manager, "intl", "A International")
     b = _fund(db, other_manager, "intl", "B International")
     repo.insert_fund_holdings(db, manager, a,
@@ -81,19 +81,17 @@ def test_peers_are_everyone_except_the_selected_manager(db, manager,
                               [_row("SK Hynix Inc", 0.9)], None)
     db.commit()
 
-    peers = queries.kr_peer_holdings(manager)
-    assert [p["security_name"] for p in peers] == ["SK Hynix Inc"]
-    assert manager not in {p.get("manager_id") for p in peers}
+    from dashboard.app import templates
+    html = templates.get_template("korea.html").render({
+        "coverage": queries.kr_fund_coverage(manager),
+        "evidence": queries.kr_evidence(manager),
+        "weight_series": queries.kr_weight_series(manager),
+        "kr_series": {}, "history": [], "selected": "burgundy",
+        "manager_name": "A", "configured_funds": 0})
 
-
-def test_a_manager_with_no_peers_holding_korea_gets_an_empty_comparison(
-        db, manager, other_manager):
-    a = _fund(db, manager, "intl", "A International")
-    repo.insert_fund_holdings(db, manager, a,
-                              [_row("Samsung Electronics Co Ltd", 1.7)], None)
-    db.commit()
-
-    assert queries.kr_peer_holdings(manager) == []
+    assert "SK Hynix Inc" not in html
+    assert "B International" not in html
+    assert "Samsung Electronics Co Ltd" in html
 
 
 def test_non_korean_positions_are_excluded(db, manager):
@@ -211,18 +209,6 @@ def test_the_heading_names_the_manager_the_rows_belong_to():
     assert "Mawer Investment Management" in html
     assert "Samsung Electronics Co Ltd" in html
     assert "1.70%" in html
-
-
-def test_peer_rows_are_labelled_as_someone_elses():
-    html = _render(manager_name="Burgundy Asset Management", peers=[{
-        "manager": "Mawer Investment Management", "manager_slug": "mawer",
-        "fund": "Mawer International Equity Fund",
-        "security_name": "Samsung Electronics Co Ltd", "weight": 2.8,
-        "as_of_date": date(2026, 6, 30), "fund_nav": 7_251_500_000.0,
-        "nav_currency": "CAD", "implied_value": 203_042_000.0}])
-    assert "다른 운용사" in html
-    assert "Mawer Investment Management" in html
-    assert "Burgundy Asset Management가 아닌" in html
 
 
 def test_a_top_n_sheet_warns_that_absence_proves_nothing():
