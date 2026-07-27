@@ -1,41 +1,92 @@
-"""Registering a manager whose identifiers have not been confirmed.
+"""The manager registry, and identifiers that arrive one at a time.
 
 A CIK is an identity, not a detail: the wrong ten digits fill the dashboard
 with another firm's portfolio and nothing downstream looks wrong. So a manager
-can be tracked before its identifiers are known, and the consequence of the
-blank has to be the safe one — collectors skip it, loudly, rather than run
-against a guess.
+is tracked as soon as it is named, each identifier is filled in only when
+supplied, and the consequence of a blank has to be the safe one — the
+collector that needs it skips, visibly, rather than running against a guess.
+
+Knowing *which firm* a manager is does not supply any of them: there is no
+name-to-CIK resolution here, and a confirmed legal name must not be enough to
+start collecting.
 """
 from __future__ import annotations
 
 import config
-from collectors.dart_5pct import Dart5pctCollector
 from collectors.edgar_13f import Edgar13FCollector
 from collectors.form_adv import FormAdvCollector
-from collectors.website import WebsiteAumCollector, WebsiteTeamCollector
 from pipeline import managers
 
-_UNCONFIRMED = ("drz", "kopernik")
+
+def _entry(slug: str) -> dict:
+    return next(m for m in config.MANAGERS if m["slug"] == slug)
 
 
 def test_the_new_managers_are_tracked(db):
     managers.sync_from_config(db)
     slugs = {m["slug"] for m in managers.active(db)}
-    assert _UNCONFIRMED[0] in slugs and _UNCONFIRMED[1] in slugs
+    assert {"drz", "kopernik"} <= slugs
 
 
-def test_knowing_which_firm_it_is_does_not_supply_its_identifiers():
-    """Firm identity and filing identifiers are separate facts, and confirming
-    the first does not confirm the second. There is no name-to-CIK resolution
-    in this repo — Edgar13FCollector.applies() requires the number — so a
-    legal name filled in from a confirmation must not drag a guessed CIK with
-    it. A wrong CIK is the failure being guarded: it looks entirely normal
-    downstream while showing another firm's portfolio."""
-    for slug in _UNCONFIRMED:
-        entry = next(m for m in config.MANAGERS if m["slug"] == slug)
-        assert entry.get("legal_name"), f"{slug} identity is confirmed"
-        for field in ("cik", "crd", "website_aum_url", "website_team_url"):
-            assert entry.get(field) is None, f"{slug}.{field} was guessed"
+def test_a_manager_without_a_cik_is_skipped_rather_than_guessed_at(db):
+    """The invariant, not a list: whichever managers are still missing a CIK,
+    EDGAR must pass over them. There is no name-to-CIK resolution here, so a
+    confirmed legal name must never be enough to start collecting — a wrong
+    CIK shows another firm's portfolio and looks entirely normal downstream."""
+    managers.sync_from_config(db)
+    tracked = {m["slug"]: m for m in managers.active(db)}
+
+    for entry in config.MANAGERS:
+        if entry.get("cik"):
+            continue
+        manager = tracked[entry["slug"]]
+        assert Edgar13FCollector(manager).applies() is False, entry["slug"]
+
+
+def test_a_manager_without_a_crd_is_skipped_by_form_adv(db):
+    managers.sync_from_config(db)
+    tracked = {m["slug"]: m for m in managers.active(db)}
+
+    for entry in config.MANAGERS:
+        if entry.get("crd"):
+            continue
+        assert FormAdvCollector(tracked[entry["slug"]]).applies() is False
+
+
+def test_every_cik_is_ten_digits_and_unique():
+    """``managers`` has UNIQUE (cik), so a duplicate would be rejected at sync
+    — but by then the wrong manager may already own the number. Padding
+    matters less (the collector zero-fills) yet an odd length is a good sign
+    that something other than a CIK was pasted in."""
+    ciks = [m["cik"] for m in config.MANAGERS if m.get("cik")]
+
+    assert len(ciks) == len(set(ciks)), "two managers share a CIK"
+    for cik in ciks:
+        assert cik.isdigit() and len(cik) == 10, cik
+
+
+def test_drz_collects_from_edgar_now_that_its_cik_is_known(db):
+    managers.sync_from_config(db)
+    drz = next(m for m in managers.active(db) if m["slug"] == "drz")
+
+    assert drz["cik"] == "0001008894"
+    assert Edgar13FCollector(drz).applies() is True
+
+
+def test_kopernik_still_has_no_identifiers_to_collect_with():
+    entry = _entry("kopernik")
+    assert entry.get("legal_name"), "identity is confirmed"
+    for field in ("cik", "crd", "website_aum_url", "website_team_url"):
+        assert entry.get(field) is None, f"kopernik.{field} was guessed"
+
+
+def test_no_website_url_was_inferred_from_a_confirmed_firm_name():
+    """Knowing the firm does not supply its URLs either. A wrong one scrapes
+    somebody else's team page under this manager's name."""
+    for slug in ("drz", "kopernik"):
+        entry = _entry(slug)
+        assert entry.get("website_aum_url") is None
+        assert entry.get("website_team_url") is None
 
 
 def test_dart_terms_match_the_reporter_without_catching_bystanders():
@@ -63,20 +114,6 @@ def test_no_dart_term_is_short_enough_to_match_by_accident():
                 assert len(term) >= 5, f"{m['slug']}: {term!r} is too short"
 
 
-def test_an_unconfirmed_manager_is_skipped_rather_than_collected(db):
-    """Skipping is recorded on the collector panel as "not configured", which
-    is a visible prompt to go and confirm the identifiers — unlike a silent
-    empty result, which reads as a manager that files nothing."""
-    managers.sync_from_config(db)
-    tracked = {m["slug"]: m for m in managers.active(db)}
-
-    for slug in _UNCONFIRMED:
-        manager = tracked[slug]
-        for cls in (Edgar13FCollector, FormAdvCollector, Dart5pctCollector,
-                    WebsiteAumCollector, WebsiteTeamCollector):
-            assert cls(manager).applies() is False, f"{slug}/{cls.source}"
-
-
 def test_the_confirmed_managers_still_collect(db):
     """The blanks must not have loosened anything for the managers whose
     identifiers *were* read off their own filings."""
@@ -96,12 +133,12 @@ def test_every_manager_has_a_unique_slug_and_sort_order():
 
 
 def test_managers_without_a_cik_do_not_collide_on_the_unique_index(db):
-    """``managers`` has UNIQUE (cik). Two unconfirmed managers both carry NULL,
-    and NULLs must not be treated as equal or the second one would be rejected."""
+    """``managers`` has UNIQUE (cik). Every manager still awaiting one carries
+    NULL, and NULLs must not compare equal or the second would be rejected."""
     managers.sync_from_config(db)
     written = managers.sync_from_config(db)          # idempotent re-run
     assert written == len(config.MANAGERS)
 
     blank = db.execute(
         "SELECT count(*) c FROM managers WHERE cik IS NULL").fetchone()["c"]
-    assert blank == len(_UNCONFIRMED)
+    assert blank == sum(1 for m in config.MANAGERS if not m.get("cik"))

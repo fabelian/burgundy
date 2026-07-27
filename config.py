@@ -83,16 +83,13 @@ MANAGERS = [
         "sort_order": 40,
     },
     # --- US-domiciled advisers -------------------------------------------
-    # Firm identity is confirmed; the *identifiers* are not, and the two are
-    # separate facts. Knowing a manager is Kopernik Global Investors does not
-    # supply its CIK, and there is no name-to-CIK resolution anywhere in this
-    # repo — Edgar13FCollector.applies() requires the number itself.
-    #
-    # So CIK, CRD and the website URLs stay NULL until each is read off the
-    # filer's own documents. A blank makes the collector skip, which shows on
-    # the panel as "not configured"; a wrong CIK puts another firm's portfolio
-    # under this name and looks entirely normal downstream. Only one of those
-    # is recoverable.
+    # Firm identity and filing identifiers are separate facts, and each is
+    # filled in only when supplied — there is no name-to-CIK resolution here,
+    # so Edgar13FCollector.applies() wants the number itself. A blank makes the
+    # collector skip, which shows on the panel as "not configured"; a wrong CIK
+    # puts another firm's portfolio under this name and looks entirely normal
+    # downstream. Only one of those is recoverable, which is why nothing here
+    # is inferred from a name.
     #
     # Both are US advisers, unlike the Canadian five, so 13F applies — and a
     # US-registered fund would bring N-PORT, which has no top-N ceiling. See
@@ -101,7 +98,11 @@ MANAGERS = [
         "slug": "drz",
         "name": "DRZ",
         "legal_name": "DEPRINCE, RACE & ZOLLO, INC.",
-        "cik": None,
+        # Supplied directly. Its magnitude corroborates the identity rather
+        # than merely fitting it: CIKs are issued in registration order, and
+        # ~1,008,894 is a mid-1990s number, matching a firm founded in 1995 —
+        # every Canadian manager here registered later and sits above 1.29M.
+        "cik": "0001008894",
         "crd": None,
         "website_aum_url": None,
         "website_team_url": None,
