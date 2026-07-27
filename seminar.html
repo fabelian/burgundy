@@ -151,6 +151,40 @@ code{background:color-mix(in srgb,var(--wine) 9%,transparent); color:var(--wine)
 .steps b.t{font-size:clamp(15px,1.6vw,19px); font-weight:700; color:var(--ink);}
 .steps span{font-size:clamp(13px,1.4vw,16px); color:var(--ink-soft);}
 
+/* ── Access card — the live app, address and login ─────────── */
+.access{
+  background:linear-gradient(135deg,
+            color-mix(in srgb,var(--wine) 13%,var(--card)),
+            color-mix(in srgb,var(--wine) 5%,var(--card)));
+  border:1px solid color-mix(in srgb,var(--wine) 34%,var(--line));
+  border-radius:14px; padding:clamp(16px,2.4vw,26px);
+  display:flex; flex-direction:column; gap:clamp(11px,1.7vh,17px);
+}
+.access .addr{
+  font-family:var(--mono); font-weight:700; word-break:break-all; line-height:1.25;
+  font-size:clamp(16px,2.5vw,30px); color:var(--wine); text-decoration:none;
+  border-bottom:2px solid color-mix(in srgb,var(--wine) 32%,transparent);
+  align-self:flex-start;
+}
+.access .creds{display:flex; flex-wrap:wrap; gap:clamp(10px,1.6vw,20px);}
+.access .cred{
+  flex:1 1 min(100%,15ch); background:var(--card);
+  border:1px solid var(--line); border-radius:10px;
+  padding:clamp(9px,1.3vw,14px) clamp(12px,1.6vw,18px);
+}
+.access .cred .lbl{
+  display:block; font-size:clamp(11px,1.1vw,13px); letter-spacing:.1em;
+  text-transform:uppercase; color:var(--muted); margin-bottom:4px;
+}
+.access .cred .val{
+  font-family:var(--mono); font-weight:700; word-break:break-all;
+  font-size:clamp(15px,1.9vw,23px); color:var(--ink);
+}
+.access .cred .val.fill{
+  color:var(--warn); background:color-mix(in srgb,var(--ochre) 16%,transparent);
+  padding:1px 7px; border-radius:5px;
+}
+
 /* ── Chat transcript — the real prompts, reproduced ────────── */
 .chat{display:flex; flex-direction:column; gap:clamp(9px,1.4vh,15px);}
 .chat .said{
@@ -277,6 +311,36 @@ td strong{color:var(--wine);}
       </div>
       <p class="tiny">기술 배경 지식은 필요 없습니다. 2번이 오늘의 핵심입니다 —
         <strong>여러분도 같은 방식으로 만들 수 있다</strong>는 게 요점이라서요.</p>
+    </div>
+  </section>
+
+  <!-- ── 접속 정보 · 지금 같이 열어두고 시작합니다 ───── -->
+  <section class="slide" data-sec="시작">
+    <div class="inner">
+      <div class="eyebrow">지금 열어보세요</div>
+      <h2>주소와 로그인</h2>
+      <div class="access">
+        <a class="addr" href="https://BURGUNDY-APP-ADDRESS.up.railway.app"
+           target="_blank" rel="noopener">https://BURGUNDY-APP-ADDRESS.up.railway.app</a>
+        <div class="creds">
+          <div class="cred">
+            <span class="lbl">아이디</span>
+            <span class="val">아무거나</span>
+          </div>
+          <div class="cred">
+            <span class="lbl">비밀번호</span>
+            <span class="val fill">발표 때 알려드립니다</span>
+          </div>
+        </div>
+      </div>
+      <div class="callout">
+        <h3>아이디는 정말 아무거나 됩니다</h3>
+        <p>빈칸으로 두면 창이 다시 뜨니 아무 글자나 넣으시면 됩니다.
+          <strong>비밀번호만 맞으면 들어갑니다.</strong> 사람별 계정이 아니라
+          사내에서 같이 쓰는 하나뿐이라서요.</p>
+      </div>
+      <p class="tiny">휴대폰에서도 그대로 열립니다. 뒤에 나오는 화면들을 직접 눌러보면서
+        들으시면 훨씬 빠릅니다.</p>
     </div>
   </section>
 
