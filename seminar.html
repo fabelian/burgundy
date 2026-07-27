@@ -231,6 +231,38 @@ code{background:color-mix(in srgb,var(--wine) 9%,transparent); color:var(--wine)
                font-size:clamp(20px,2.7vw,34px); line-height:1.15;}
 .stats .s .cap{font-size:clamp(12px,1.3vw,15px); color:var(--ink-soft);}
 
+/* ── Pull quote ────────────────────────────────────────────── */
+.quote{
+  border-left:3px solid var(--wine); padding-left:clamp(16px,2.4vw,28px);
+  display:flex; flex-direction:column; gap:9px;
+}
+.quote p{
+  font-size:clamp(19px,2.5vw,33px); font-weight:700; line-height:1.35; color:var(--ink);
+}
+.quote cite{font-style:normal; font-size:clamp(13px,1.4vw,16px); color:var(--wine); font-weight:600;}
+
+/* ── Stacked ordinal bar — Yes / Partly / No out of 13 ─────── */
+.sb{display:flex; flex-direction:column; gap:clamp(6px,1.1vh,12px);}
+.sb .head{font-size:clamp(13px,1.45vw,17px); font-weight:700; color:var(--wine);
+          margin-top:clamp(3px,.7vh,7px);}
+.sb .head:first-child{margin-top:0;}
+.sb .r{display:flex; align-items:center; gap:clamp(9px,1.4vw,16px);}
+.sb .r .lab{flex:none; width:clamp(78px,11vw,150px); text-align:right;
+            font-size:clamp(12px,1.35vw,16px); color:var(--ink-soft); line-height:1.25;}
+.sb .r .lab b{display:block; color:var(--ink); font-weight:700;}
+.sb .track{flex:1; display:flex; gap:2px; height:clamp(24px,3.6vh,38px);}
+.sb .seg{display:grid; place-items:center; border-radius:4px;
+         font-family:var(--mono); font-weight:700; font-size:clamp(12px,1.4vw,17px);}
+.sb .seg.y{background:var(--wine);   color:var(--paper);}
+.sb .seg.p{background:var(--wine-2); color:var(--paper);}
+.sb .seg.n{background:var(--line);   color:var(--ink-soft);}
+.legend{display:flex; gap:clamp(12px,2vw,24px); flex-wrap:wrap;
+        font-size:clamp(12px,1.3vw,15px); color:var(--ink-soft);}
+.legend i{display:inline-block; width:.85em; height:.85em; border-radius:3px;
+          margin-right:7px; vertical-align:baseline;}
+.legend .y i{background:var(--wine);} .legend .p i{background:var(--wine-2);}
+.legend .n i{background:var(--line);}
+
 /* ── Source line ───────────────────────────────────────────── */
 .src{font-size:clamp(11px,1.15vw,13px); color:var(--muted); line-height:1.65;}
 .src b{font-weight:600; color:var(--ink-soft);}
@@ -495,22 +527,58 @@ td strong{color:var(--wine);}
   <section class="slide" data-sec="0 · 배경">
     <div class="inner">
       <div class="eyebrow">Part 0 · 현장 반응</div>
-      <h2>업계는 이미 다르게 말합니다</h2>
-      <div class="callout">
-        <h3>금융권 시니어 퀀트 인터뷰</h3>
-        <p><span class="todo">인용문 채워야 함</span> — risk.net 기사 원문을 아직 확인하지 못했습니다(유료).
-          링크나 문장을 주시면 그대로 넣겠습니다.</p>
+      <h2>금융권 퀀트들이<br>먼저 겪고 있습니다</h2>
+      <div class="quote">
+        <p>“1월까지만 해도 확신이 없었습니다.<br>지금은 이게 많은 걸 바꿀 거라고 봅니다”</p>
+        <cite>— 어느 자산운용사 시니어 퀀트</cite>
       </div>
-      <div class="rows">
-        <div class="row"><span class="k">“2030년까지 일하는 방식이 근본적으로 바뀔 것”</span><span class="v">82%</span></div>
-        <div class="row"><span class="k">“코딩보다 설계로 역할이 옮겨갈 것”</span><span class="v">74%</span></div>
-        <div class="row"><span class="k">22~25세 개발자 고용 (2024년 대비)</span><span class="v">−20%</span></div>
-        <div class="row"><span class="k">“내 직군이 아예 없어질 것”</span><span class="v dim">17%</span></div>
+      <div class="verdict g2 grid">
+        <div class="no"><span class="mark">→</span><div><b>당장 감원은 없다</b>
+          <span class="d">가까운 시일 내 퀀트 인력 감축 계획은 없다고 답했습니다</span></div></div>
+        <div class="no"><span class="mark">↓</span><div><b>대신 채용이 줄어든다</b>
+          <span class="d">특히 <strong>주니어 자리</strong>가 가장 많이 줄 것으로 봅니다</span></div></div>
+        <div class="yes"><span class="mark">↑</span><div><b>리서치 역량이 중요해진다</b>
+          <span class="d">코딩 능력보다 연구 능력·박사 학위를 선호하게 될 것</span></div></div>
+        <div class="yes"><span class="mark">↑</span><div><b>AI를 “검증하는” 일이 는다</b>
+          <span class="d">직접 짜기보다 <strong>방향을 잡고 결과를 확인하는</strong> 쪽으로</span></div></div>
       </div>
-      <p>맨 아랫줄을 같이 봐야 합니다. <strong>직업이 사라진다기보다 하는 일이 바뀝니다.</strong>
-        다만 <strong>신입 자리는 실제로 줄고 있고</strong>, 줄어드는 쪽은 “시키는 대로 코드를 치는 일”입니다.
-        남는 쪽은 <strong>무엇을 만들지 정하고 결과를 검토하는 일</strong> — 오늘 보여드릴 방식입니다.</p>
-      <p class="src"><b>출처</b> · Stack Overflow 개발자 설문 (응답 83,000명), Stanford HAI AI Index 2026.</p>
+      <p class="src"><b>출처</b> · Risk.net “Top quants on how AI will change some jobs and steal others”,
+        Rob Mannix·Mauro Cesa, 2026년 6월 24일. 은행·바이사이드·학계·기술 분야
+        <b>시니어 퀀트 13명</b> 대상 조사이며, 민감한 주제라 실명은 공개되지 않았습니다.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-sec="0 · 배경">
+    <div class="inner">
+      <div class="eyebrow">Part 0 · 현장 반응</div>
+      <h2>“AI가 이 일을 할 수 있습니까?”</h2>
+      <div class="sb">
+        <div class="head">소프트웨어 개발자 (퀀트팀 소속)</div>
+        <div class="r"><span class="lab">지금</span><span class="track">
+          <span class="seg y" style="flex:5">5</span><span class="seg p" style="flex:5">5</span><span class="seg n" style="flex:3">3</span></span></div>
+        <div class="r"><span class="lab">5년 후</span><span class="track">
+          <span class="seg y" style="flex:10">10</span><span class="seg n" style="flex:3">3</span></span></div>
+        <div class="head">주니어 퀀트</div>
+        <div class="r"><span class="lab">지금</span><span class="track">
+          <span class="seg y" style="flex:4">4</span><span class="seg p" style="flex:5">5</span><span class="seg n" style="flex:4">4</span></span></div>
+        <div class="r"><span class="lab">5년 후</span><span class="track">
+          <span class="seg y" style="flex:7">7</span><span class="seg p" style="flex:1">1</span><span class="seg n" style="flex:5">5</span></span></div>
+        <div class="head">시니어 퀀트</div>
+        <div class="r"><span class="lab">지금</span><span class="track">
+          <span class="seg p" style="flex:5">5</span><span class="seg n" style="flex:8">8</span></span></div>
+        <div class="r"><span class="lab">5년 후</span><span class="track">
+          <span class="seg y" style="flex:4">4</span><span class="seg p" style="flex:2">2</span><span class="seg n" style="flex:7">7</span></span></div>
+      </div>
+      <div class="legend">
+        <span class="y"><i></i>예</span><span class="p"><i></i>부분적으로</span><span class="n"><i></i>아니오 · 무응답</span>
+        <span style="color:var(--muted)">응답자 13명</span>
+      </div>
+      <p><strong>“코드를 짜는 일”이 가장 먼저 바뀝니다</strong> — 5년 후엔 13명 중 10명이 “할 수 있다”고 봅니다.
+        시니어 퀀트를 지금 대체할 수 있다고 본 사람은 <strong>0명</strong>입니다.
+        사라지는 건 직업이 아니라 <strong>일의 종류</strong>입니다.</p>
+      <p class="src"><b>출처</b> · Risk.net 조사 (2026년 6월 24일), 응답자 13명. 막대 안 숫자는 응답 인원수입니다. &nbsp;
+        <b>참고</b> · 위는 전망이지만, 미국 22~25세 개발자 고용은 이미 2024년 대비 약 20% 줄었습니다
+        (Stanford HAI AI Index 2026) — 이쪽은 의견이 아니라 고용 통계입니다.</p>
     </div>
   </section>
 
