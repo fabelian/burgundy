@@ -193,7 +193,7 @@ def test_weighted_rows_still_lead_the_table(db, manager):
 def _render(**ctx):
     from dashboard.app import templates
 
-    base = {"coverage": [], "evidence": [], "peers": [], "weight_series": {},
+    base = {"coverage": [], "evidence": [], "weight_series": {},
             "kr_series": {}, "history": [], "selected": "burgundy",
             "manager_name": "Test Manager", "configured_funds": 0}
     return templates.get_template("korea.html").render({**base, **ctx})

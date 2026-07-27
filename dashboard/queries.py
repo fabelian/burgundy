@@ -292,8 +292,11 @@ def kr_evidence(manager_id: int) -> list[dict]:
     on the reasoning that "which of the five holds Samsung" is a comparison —
     but the manager column is the first thing a narrow screen scrolls out of
     view, which left another firm's Samsung position sitting under the selected
-    manager's name. An attribution error is a worse failure than an extra
-    click, and the comparison lives in ``kr_peer_holdings`` instead.
+    manager's name. An attribution error is a worse failure than an extra click.
+
+    A peer-comparison card was tried as a middle ground and dropped: the tab is
+    read one manager at a time, and another firm's holdings on the page were
+    noise at best. The manager picker is the comparison.
 
     A fact sheet prints only the top 10–25 positions, so it cannot show a
     holding below its smallest printed weight. A voting record has no such
@@ -365,35 +368,6 @@ def kr_evidence(manager_id: int) -> list[dict]:
              ORDER BY g.weight DESC NULLS LAST, f.name, g.security_name
             """,
             {"manager_id": manager_id},
-        ).fetchall()
-
-
-def kr_peer_holdings(manager_id: int) -> list[dict]:
-    """The *other* managers' Korean positions, for comparison.
-
-    Deliberately excludes the selected manager rather than highlighting it.
-    Mixing the two in one table is what made the manager column load-bearing,
-    and a load-bearing column that scrolls off a phone misattributes holdings.
-    Here every row belongs to someone else by construction, so there is nothing
-    to misread even with the table scrolled.
-    """
-    with connect() as conn:
-        return conn.execute(
-            """
-            SELECT DISTINCT ON (fh.manager_id, fh.security_key)
-                   m.name AS manager, m.slug AS manager_slug,
-                   f.name AS fund, fh.security_name, fh.weight, fh.as_of_date,
-                   s.nav AS fund_nav, s.nav_currency,
-                   (fh.weight / 100.0) * s.nav AS implied_value
-              FROM fund_holdings fh
-              JOIN funds f    ON f.id = fh.fund_id
-              JOIN managers m ON m.id = fh.manager_id
-              LEFT JOIN fund_snapshots s
-                     ON s.fund_id = fh.fund_id AND s.as_of_date = fh.as_of_date
-             WHERE fh.is_korean AND fh.manager_id <> %s AND m.is_active
-             ORDER BY fh.manager_id, fh.security_key, fh.as_of_date DESC
-            """,
-            (manager_id,),
         ).fetchall()
 
 

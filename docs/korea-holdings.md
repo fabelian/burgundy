@@ -260,10 +260,13 @@ the top-N warning need no changes — the warning simply stops firing.
    the one error that would put a salesperson on a call about a position the firm does
    not have.
 
-   The comparison survives as a separate **"다른 운용사"** card that *excludes* the
-   selected manager. Every row in it belongs to someone else by construction, so there is
-   nothing to misread even with the table scrolled. The rule generalises: when a column
-   is what makes a row's meaning correct, it cannot live in a table that scrolls.
+   A separate "다른 운용사" card excluding the selected manager was tried as a middle
+   ground and then removed too: the tab is read one manager at a time, and another firm's
+   holdings on the page were noise at best. **The manager picker is the comparison.**
+
+   The rule that survives both attempts generalises: when a column is what makes a row's
+   meaning correct, it cannot live in a table that scrolls — and the cheaper fix is
+   usually to remove the rows that need it rather than to defend the column.
 
 4. **`parsers/parse_factsheet.py`** — calibrated against the Mawer International Equity
    Fund (Series F) sheet as at 30 June 2026. Its extracted text is checked in at

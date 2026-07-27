@@ -137,12 +137,9 @@ def tab_us(request: Request, quarter: Optional[str] = Query(None),
 def tab_korea(request: Request, manager: Optional[str] = Query(None),
               _=Depends(require_auth)):
     m = _resolve(manager)
-    # Scoped to the selected manager like every other tab. Peer holdings are a
-    # separate, clearly-labelled section rather than extra rows in the same
-    # table — see queries.kr_peer_holdings.
+    # Scoped to the selected manager, like every other tab.
     return templates.TemplateResponse(request, "korea.html", {
         "manager_name": m["name"],
-        "peers": queries.kr_peer_holdings(m["id"]),
         "coverage": queries.kr_fund_coverage(m["id"]),
         # The registry is populated by pipeline.run, not by the dashboard, so
         # between a deploy and the next collector run the table is empty while
