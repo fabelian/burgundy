@@ -123,9 +123,19 @@ MANAGERS = [
         "slug": "kopernik",
         "name": "Kopernik",
         "legal_name": "KOPERNIK GLOBAL INVESTORS, LLC",
-        "cik": None,
+        # ~1,599,814 is a 2014-era number, matching a firm founded in 2013 —
+        # the highest here, and the only manager registered after Mawer.
+        #
+        # This is the *adviser's* CIK, which is what 13F is filed under. If the
+        # global all-cap strategy is a US-registered fund then its N-PORT is
+        # filed by the fund or its trust, under a different CIK entirely — so
+        # searching EDGAR under this number will not find it. Search the fund
+        # name. See "US-domiciled managers" in docs/korea-holdings.md.
+        "cik": "0001599814",
         "crd": None,
-        "website_aum_url": None,
+        "website_aum_url": "https://www.kopernikglobal.com/",
+        # Root only; the team page path has not been seen, and a guessed one
+        # would scrape whatever happens to sit there under this firm's name.
         "website_team_url": None,
         "dart_terms": ["Kopernik"],
         "sort_order": 60,

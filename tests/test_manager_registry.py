@@ -15,6 +15,7 @@ from __future__ import annotations
 import config
 from collectors.edgar_13f import Edgar13FCollector
 from collectors.form_adv import FormAdvCollector
+from collectors.website import WebsiteTeamCollector
 from pipeline import managers
 
 
@@ -73,20 +74,32 @@ def test_drz_collects_from_edgar_now_that_its_cik_is_known(db):
     assert Edgar13FCollector(drz).applies() is True
 
 
-def test_kopernik_still_has_no_identifiers_to_collect_with():
-    entry = _entry("kopernik")
-    assert entry.get("legal_name"), "identity is confirmed"
-    for field in ("cik", "crd", "website_aum_url", "website_team_url"):
-        assert entry.get(field) is None, f"kopernik.{field} was guessed"
+def test_kopernik_collects_from_edgar_now_that_its_cik_is_known(db):
+    managers.sync_from_config(db)
+    kopernik = next(m for m in managers.active(db) if m["slug"] == "kopernik")
+
+    assert kopernik["cik"] == "0001599814"
+    assert Edgar13FCollector(kopernik).applies() is True
 
 
-def test_no_website_url_was_inferred_from_a_confirmed_firm_name():
-    """Knowing the firm does not supply its URLs either. A wrong one scrapes
-    somebody else's team page under this manager's name."""
-    for slug in ("drz", "kopernik"):
-        entry = _entry(slug)
-        assert entry.get("website_aum_url") is None
-        assert entry.get("website_team_url") is None
+def test_no_url_path_was_invented_beyond_the_domain_that_was_given():
+    """A supplied domain is not a supplied page. Guessing a team-page path
+    scrapes whatever happens to sit there and files those people under this
+    manager, which reads exactly like a real personnel record."""
+    assert _entry("kopernik")["website_aum_url"] == "https://www.kopernikglobal.com/"
+    assert _entry("kopernik")["website_team_url"] is None
+    assert _entry("drz")["website_aum_url"] is None
+    assert _entry("drz")["website_team_url"] is None
+
+
+def test_a_manager_without_a_team_url_is_skipped_by_that_scrape(db):
+    managers.sync_from_config(db)
+    tracked = {m["slug"]: m for m in managers.active(db)}
+
+    for entry in config.MANAGERS:
+        if entry.get("website_team_url"):
+            continue
+        assert WebsiteTeamCollector(tracked[entry["slug"]]).applies() is False
 
 
 def test_dart_terms_match_the_reporter_without_catching_bystanders():
