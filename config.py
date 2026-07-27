@@ -83,41 +83,50 @@ MANAGERS = [
         "sort_order": 40,
     },
     # --- US-domiciled advisers -------------------------------------------
-    # Added later and deliberately incomplete. Every identifier above was read
-    # off that filer's own EDGAR documents; none of these could be, so they are
-    # left NULL rather than guessed. The cost of a blank is that EDGAR, Form ADV
-    # and the website scrapes skip the manager — visible on the collector panel.
-    # The cost of a wrong CIK is another firm's portfolio under this name, with
-    # nothing downstream looking wrong. Fill them in from the filer's own
-    # documents, not from a name search.
+    # Firm identity is confirmed; the *identifiers* are not, and the two are
+    # separate facts. Knowing a manager is Kopernik Global Investors does not
+    # supply its CIK, and there is no name-to-CIK resolution anywhere in this
+    # repo — Edgar13FCollector.applies() requires the number itself.
     #
-    # Unlike the five Canadian managers, both are US advisers, so 13F applies to
-    # them — and a US-registered fund would bring N-PORT, which has no top-N
-    # ceiling. See "US-domiciled managers" in docs/korea-holdings.md.
+    # So CIK, CRD and the website URLs stay NULL until each is read off the
+    # filer's own documents. A blank makes the collector skip, which shows on
+    # the panel as "not configured"; a wrong CIK puts another firm's portfolio
+    # under this name and looks entirely normal downstream. Only one of those
+    # is recoverable.
+    #
+    # Both are US advisers, unlike the Canadian five, so 13F applies — and a
+    # US-registered fund would bring N-PORT, which has no top-N ceiling. See
+    # "US-domiciled managers" in docs/korea-holdings.md.
     {
         "slug": "drz",
         "name": "DRZ",
-        # Very likely DePrince, Race & Zollo (Winter Park, FL — long-only US
-        # value plus an EM Value strategy). Not recorded as legal_name until
-        # confirmed: a name is what dart_terms and the ADV lookup key off.
-        "legal_name": None,
+        "legal_name": "DEPRINCE, RACE & ZOLLO, INC.",
         "cik": None,
         "crd": None,
         "website_aum_url": None,
         "website_team_url": None,
+        # A deep-value manager running an EM strategy is a far likelier 5%
+        # filer in a Korean small cap than the large-cap-oriented Canadians,
+        # so the DART safety net is worth arming here even though the rule can
+        # never surface a large cap.
+        #
+        # English spellings only. DART sometimes renders a foreign reporter in
+        # Hangul (Burgundy carries both), but the transliteration is not
+        # guessable — add it if a known filing is ever missed. "DRZ" itself is
+        # too short to match on: three letters appear inside unrelated
+        # reporter names.
+        "dart_terms": ["DePrince", "Zollo"],
         "sort_order": 50,
     },
     {
         "slug": "kopernik",
         "name": "Kopernik",
-        # Very likely Kopernik Global Investors, LLC (Tampa, FL). Its global
-        # all-cap strategy appears to be a US-registered fund, which would make
-        # N-PORT available — month-end, position-level, whole portfolio.
-        "legal_name": None,
+        "legal_name": "KOPERNIK GLOBAL INVESTORS, LLC",
         "cik": None,
         "crd": None,
         "website_aum_url": None,
         "website_team_url": None,
+        "dart_terms": ["Kopernik"],
         "sort_order": 60,
     },
 ]
