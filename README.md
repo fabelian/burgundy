@@ -1,5 +1,10 @@
 # 자산운용사 추적기
 
+> ### 📊 [세미나 발표자료 바로 보기](https://claude.ai/code/artifact/fdc52f4b-5bc6-4314-8e4c-b8b2ca4df184)
+>
+> 이게 뭔지, 어떻게 만들었는지 25장으로 설명합니다. 사전 지식 없이 볼 수 있습니다.
+> 원본 파일은 이 저장소 맨 위의 [`seminar.html`](seminar.html) 입니다 — 내려받아 브라우저로 열어도 됩니다.
+
 ## 한 줄로
 
 **"이 운용사가 삼성전자를 얼마나 갖고 있지?"** 에 답하기 위해, 흩어져 있는 공개 자료를 매일 모아서 한 화면에 보여주는 프로그램입니다.
@@ -150,6 +155,7 @@ uvicorn dashboard.app:app --reload   # http://localhost:8000
 
 | 문서 | 내용 |
 |---|---|
+| [`seminar.html`](seminar.html) | 세미나 발표자료 — **사전 지식 없이 볼 수 있는 설명** |
 | `docs/operations.md` | 코드 구조, 배포, 환경변수, 명령어 — **개발·운영용** |
 | `docs/korea-holdings.md` | 한국 보유내역을 어떤 자료로 알 수 있고 없는지, 그 근거 |
 | `docs/korea-holdings-buildout.md` | 만들어온 과정과, 나중에 뒤집힌 판단들 |
