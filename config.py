@@ -167,11 +167,15 @@ MANAGERS = [
 # Placeholders: {q} quarter 1-4, {yy} 2-digit year, {yyyy} 4-digit year,
 # {mm} 2-digit month.
 #
-# The list is short on purpose. A fund is added once its document URL has been
-# *seen*, not guessed — the same rule the CIKs above follow. The remaining four
-# managers' International/Global/EM funds still need enumerating against their
-# live sites; a template invented here would 404 quietly on every run and read
-# as "this manager discloses nothing".
+# A URL is recorded only once *seen*, never guessed — the same rule the CIKs
+# follow. An invented template would 404 quietly on every run and read as "this
+# manager discloses nothing", which is indistinguishable from a real absence.
+#
+# Registering a fund with **no** URL is a different thing and is fine: it is
+# inert (FactsheetCollector._funds() skips it) but visible, appearing on the
+# Korea tab's coverage card as 미수집. That turns "we have not got this document
+# yet" from an invisible gap into a checklist row. The forbidden move is a
+# guessed URL, not a blank one.
 FUNDS = [
     {
         "manager_slug": "mawer",
@@ -199,6 +203,45 @@ FUNDS = [
             "mawer-com-cms/assets/"
             "Mawer_International_Equity_Fund_Series_F_24a4cbc644.pdf"
         ),
+        "cadence": "quarterly",
+        "sort_order": 0,
+    },
+    # --- awaiting documents ----------------------------------------------
+    # Registered by name so the gap is visible rather than invisible; no URL
+    # has been seen for any of them, so the collector passes over them and the
+    # coverage card shows 미수집.
+    #
+    # Kopernik: check N-PORT before spending effort on its PDFs. If the
+    # all-cap strategy is a US-registered fund, N-PORT gives the whole
+    # portfolio monthly and these fact sheets stop being worth parsing at all
+    # (docs/korea-holdings.md, "US-domiciled managers").
+    {
+        "manager_slug": "kopernik",
+        "slug": "global-all-cap",
+        "name": "Kopernik Global All-Cap",
+        "mandate": "global",
+        "currency": "USD",
+        "cadence": "quarterly",
+        "sort_order": 0,
+    },
+    {
+        "manager_slug": "kopernik",
+        "slug": "international",
+        "name": "Kopernik International",
+        "mandate": "international",
+        "currency": "USD",
+        "cadence": "quarterly",
+        "sort_order": 10,
+    },
+    # DRZ's US Micro/Small/SMID/Large-Cap Value strategies are deliberately
+    # absent: a US-only mandate cannot hold a Korean security, so listing one
+    # would spend a download to learn nothing. Only the EM strategy qualifies.
+    {
+        "manager_slug": "drz",
+        "slug": "emerging-markets-value",
+        "name": "DRZ Emerging Markets Value",
+        "mandate": "emerging",
+        "currency": "USD",
         "cadence": "quarterly",
         "sort_order": 0,
     },
