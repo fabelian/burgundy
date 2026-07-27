@@ -131,12 +131,44 @@ def test_config_funds_sync_into_the_table(db, manager):
     managers_mod.sync_from_config(db)
     funds.sync_from_config(db)
 
-    rows = db.execute("SELECT slug, mandate, doc_url_template FROM funds").fetchall()
+    rows = db.execute(
+        "SELECT slug, mandate, doc_url_template, doc_url FROM funds").fetchall()
     assert rows, "config.FUNDS should seed at least the confirmed Mawer fund"
     for r in rows:
         assert r["mandate"] in ("international", "global", "emerging"), (
             "a Canadian or US-only mandate cannot hold a Korean security")
-        assert r["doc_url_template"], "a fund with no document URL is unreadable"
+
+
+def test_a_fund_with_no_url_is_registered_but_never_fetched(db, manager):
+    """A blank URL and a guessed one are not the same thing. A blank leaves the
+    fund inert and visible on the coverage card as not-yet-collected; a guess
+    would 404 on every run and read as "this manager discloses nothing"."""
+    from collectors.factsheet import FactsheetCollector
+
+    funds.sync_from_config(db)
+    db.execute(
+        "INSERT INTO funds (manager_id, slug, name, mandate)"
+        " VALUES (%s, 'awaiting-doc', 'Awaiting', 'global')"
+        " ON CONFLICT (manager_id, slug) DO NOTHING",
+        (manager,),
+    )
+    db.commit()
+
+    collector = FactsheetCollector({"id": manager, "slug": "burgundy"})
+    assert "awaiting-doc" not in {f["slug"] for f in collector._funds()}
+
+    from dashboard import queries
+    coverage = {c["fund"]: c for c in queries.kr_fund_coverage(manager)}
+    assert coverage["Awaiting"]["latest_as_of"] is None, "shown as uncollected"
+
+
+def test_every_registered_fund_is_an_in_scope_mandate():
+    """The US-only DRZ strategies are excluded on purpose — a mandate that
+    cannot hold a Korean security is a download spent to learn nothing."""
+    import config
+
+    for f in config.FUNDS:
+        assert f["mandate"] in ("international", "global", "emerging"), f["slug"]
 
 
 def test_sync_is_idempotent(db, manager):

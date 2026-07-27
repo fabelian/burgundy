@@ -444,11 +444,28 @@ Korea tab need no changes to accept one.
 
 ## What remains
 
-**The other four managers have no funds registered.** `config.FUNDS` holds only Mawer
-International Equity, whose document paths are the ones confirmed by observation. A fund
-is added once its URL has been *seen*, never guessed — the same rule the CIKs follow. An
-invented URL would 404 quietly on every run and read as "this manager discloses nothing",
-which is indistinguishable from a real absence.
+**Three funds are registered but have no document URL**, so nothing fetches them and the
+coverage card shows them as 미수집:
+
+| Manager | Fund | Mandate |
+|---|---|---|
+| Kopernik | Kopernik Global All-Cap | global |
+| Kopernik | Kopernik International | international |
+| DRZ | DRZ Emerging Markets Value | emerging |
+
+A blank URL and a guessed one are different things. A blank leaves the fund inert and
+**visible** — a checklist row rather than an invisible gap. A guess would 404 on every run
+and read as "this manager discloses nothing", which is indistinguishable from a real
+absence. Only the second is forbidden.
+
+DRZ's US Micro/Small/SMID/Large-Cap Value strategies are deliberately not registered: a
+US-only mandate cannot hold a Korean security, so listing one spends a download to learn
+nothing.
+
+**Check Kopernik's N-PORT before chasing its fact sheets.** If the all-cap strategy is a
+US-registered fund, N-PORT gives the whole portfolio monthly and those PDFs stop being
+worth parsing at all — no ~$116M floor, no top-N extract, no layout to calibrate. Search
+EDGAR by **fund name**, not by the adviser CIK `0001599814`, which will not find it.
 
 **The parser is calibrated against one manager's layout.** Mawer's is now known; the
 other four will differ, and each will need its own calibration against a real document.
