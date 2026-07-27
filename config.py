@@ -82,6 +82,44 @@ MANAGERS = [
         "website_team_url": "https://www.lba.ca/teams/",
         "sort_order": 40,
     },
+    # --- US-domiciled advisers -------------------------------------------
+    # Added later and deliberately incomplete. Every identifier above was read
+    # off that filer's own EDGAR documents; none of these could be, so they are
+    # left NULL rather than guessed. The cost of a blank is that EDGAR, Form ADV
+    # and the website scrapes skip the manager — visible on the collector panel.
+    # The cost of a wrong CIK is another firm's portfolio under this name, with
+    # nothing downstream looking wrong. Fill them in from the filer's own
+    # documents, not from a name search.
+    #
+    # Unlike the five Canadian managers, both are US advisers, so 13F applies to
+    # them — and a US-registered fund would bring N-PORT, which has no top-N
+    # ceiling. See "US-domiciled managers" in docs/korea-holdings.md.
+    {
+        "slug": "drz",
+        "name": "DRZ",
+        # Very likely DePrince, Race & Zollo (Winter Park, FL — long-only US
+        # value plus an EM Value strategy). Not recorded as legal_name until
+        # confirmed: a name is what dart_terms and the ADV lookup key off.
+        "legal_name": None,
+        "cik": None,
+        "crd": None,
+        "website_aum_url": None,
+        "website_team_url": None,
+        "sort_order": 50,
+    },
+    {
+        "slug": "kopernik",
+        "name": "Kopernik",
+        # Very likely Kopernik Global Investors, LLC (Tampa, FL). Its global
+        # all-cap strategy appears to be a US-registered fund, which would make
+        # N-PORT available — month-end, position-level, whole portfolio.
+        "legal_name": None,
+        "cik": None,
+        "crd": None,
+        "website_aum_url": None,
+        "website_team_url": None,
+        "sort_order": 60,
+    },
 ]
 
 # ---------------------------------------------------------------------------
