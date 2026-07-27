@@ -10,8 +10,16 @@ otherwise:
 - **Large caps specifically.** A source that only surfaces small caps is worthless here.
 - **Freshness.** Near-real-time preferred; annual disclosure is too slow to act on.
 
-The tracked set is fixed at the five managers in `config.MANAGERS` — Burgundy, Mawer,
-EdgePoint, Beutel Goodman, Letko Brosseau. Expanding the list is out of scope.
+The tracked set is `config.MANAGERS`. It began as five Canadian managers — Burgundy,
+Mawer, EdgePoint, Beutel Goodman, Letko Brosseau — and **DRZ and Kopernik were added
+later**. Everything below about ruled-out sources was reasoned against the Canadian five;
+the two US advisers change some of those answers, and that is set out in
+"US-domiciled managers" below.
+
+Neither new manager's identifiers have been confirmed yet, so both are registered with a
+name and nothing else. Every collector skips them until a CIK or CRD is read off that
+filer's own documents — the same rule the original five follow, and the reason a wrong
+CIK has never put another firm's portfolio on this dashboard.
 
 ## The measurement ceiling
 
@@ -62,8 +70,8 @@ nothing on a source that structurally cannot show a large cap.
 | **Shareholder surveillance** (S&P Global/Ipreo, Georgeson, Morrow Sodali, CMi2i) | none | near-real-time | all | ~$30–100k/yr | issuer-side product |
 | 실질주주명부 via issuer IR | none | record date | all | IR relationship | out of scope |
 | DART 5% (대량보유) | large caps impossible | days | n/a | free | ruled out |
-| SEC N-PORT | none | monthly | US-registered funds | free | none of the five file |
-| 13F | US-listed only | quarterly | US positions | free | ruled out |
+| **SEC N-PORT** | **none** | monthly | US-registered funds | free | none of the Canadian five file — **re-open for DRZ / Kopernik** |
+| 13F | US-listed only | quarterly | US positions | free | ruled out for Korea; applies to the US advisers |
 | KSD / FSS / KRX | no per-manager breakdown | daily | n/a | free | ruled out |
 
 Cost figures are order-of-magnitude and **unverified** — this sector consolidates often
@@ -131,7 +139,11 @@ For the sales question "does this manager hold Samsung at all", the stale source
 better one. Not built; the highest-value remaining source. Same vehicle limit as MRFP —
 pooled and segregated mandates file nothing.
 
-### SEC Form N-PORT — these managers do not file it
+### SEC Form N-PORT — none of the *Canadian five* file it
+
+> **Re-open for DRZ and Kopernik.** This section reasons about the original five only.
+> Both new managers are US advisers, and a US-registered fund would make N-PORT available
+> — with no top-N ceiling at all. See "US-domiciled managers".
 
 N-PORT would be ideal: month-end position level, ISIN, structured XML, free. It applies
 to **US-registered** funds only, and none of the five have one that could hold Korean
@@ -160,6 +172,30 @@ Korean positions can only sit in **International / Global / Emerging Markets** m
 Canadian and US-only funds can be skipped. Cadence is quarterly for Mawer, monthly for
 some managers: slower than "real time", but far fresher than anything else that contains
 a Korean large cap at all.
+
+## US-domiciled managers — the ruled-out sources are worth re-asking
+
+DRZ (Winter Park, FL) and Kopernik (Tampa, FL) are **US advisers**, and three of the
+rejections above were reasoned specifically about Canadian firms. For these two:
+
+- **13F applies.** Their US-listed holdings are disclosed quarterly, position level, free,
+  with a stable API. It still cannot show Samsung Electronics or SK Hynix, which have no
+  US listing — the ADR limit stands — but it is a real source where it was previously
+  "these managers do not file".
+- **N-PORT may apply, and it has no top-N ceiling.** It was ruled out because none of the
+  five Canadian managers has a US-registered fund that could hold Korean equity. Kopernik
+  appears to run its global all-cap strategy as a **US-registered fund** — a soft close is
+  a mutual-fund event — and if so, N-PORT gives **month-end, position-level, whole
+  portfolio, ISIN, structured XML, free**.
+
+  That would be strictly better than everything built here: no ~$116M floor, no top-25
+  extract, no PDF layout to calibrate, monthly rather than quarterly. **Check this before
+  chasing fact sheets for Kopernik.** Search EDGAR for the fund, not the adviser: N-PORT
+  is filed by the registered fund or its trust, so an adviser-name search can miss it.
+- **Form ADV** applies to both once a CRD is known, giving official RAUM.
+
+DART and the Korean-sources reasoning are unaffected — those are properties of Korean
+disclosure, not of where the holder is domiciled.
 
 ## Commercial data — one question decides whether it is worth buying
 
