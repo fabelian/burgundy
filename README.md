@@ -1,13 +1,18 @@
 # North American Asset Manager Tracker
 
 Periodically collects and **permanently preserves** the public footprint of a
-set of North American asset managers — Burgundy, Mawer, EdgePoint, Beutel
-Goodman and Letko Brosseau — each tracked independently:
+set of North American asset managers, each tracked independently:
 
 - **US holdings** — SEC EDGAR 13F-HR filings (incl. amendments)
-- **Korean stakes** — DART 대량보유상황보고 (5%+ disclosures)
+- **Korean holdings** — the managers' own fund disclosures (fact sheets), which
+  are the only free route to a Korean large cap; see `docs/korea-holdings.md`
+- **Korean stakes** — DART 대량보유상황보고 (5%+), kept as a cheap safety net
 - **AUM** — SEC Form ADV RAUM, 13F totals, website figure
 - **People** — Form ADV Schedule A + company team page
+
+Currently tracked: **Burgundy, DRZ, Kopernik.** Mawer, EdgePoint, Beutel Goodman
+and Letko Brosseau are registered but retired (`is_active=False`) — see
+"Tracking several managers".
 
 Everything is stored **append-only**. Snapshots are never updated or deleted;
 corrections/amendments arrive as new rows. Every change is diffed into a
@@ -43,7 +48,16 @@ portfolio and still look healthy. Config is authoritative, so correcting a CIK
 there fixes the tracked filer on the next run.
 
 A manager missing what a collector needs — no CIK, no CRD, no website URL, no
-DART search terms — is skipped for that collector, not guessed at:
+DART search terms — is skipped for that collector, not guessed at. A blank is
+visible on the collector panel as "not configured"; a wrong identifier would look
+entirely healthy while tracking the wrong firm.
+
+`is_active=False` retires a manager. `pipeline.run` iterates the active set and
+every dashboard tab resolves through it, so one flag stops all outbound
+collection *and* takes the manager off the web app — a hand-typed `?manager=`
+slug falls back rather than serving their data. Nothing collected is deleted, so
+it is reversible, and naming a retired manager explicitly in a backfill still
+works.
 
 ```bash
 python -m pipeline.backfill --since 2015 --manager mawer   # one manager
@@ -55,9 +69,17 @@ The dashboard takes `?manager=<slug>`; the header picker switches between them.
 
 ## Korean stakes
 
-**`docs/korea-holdings.md` records which sources can and cannot show these managers'
-Korean large-cap positions**, with the evidence for each — read it before extending the
-Korean side, so ruled-out routes are not rebuilt.
+Two documents cover this, and both are worth reading before extending the Korean side:
+
+- **`docs/korea-holdings.md`** — which sources can and cannot show these managers' Korean
+  large-cap positions, with the evidence for each, so ruled-out routes are not rebuilt.
+- **`docs/korea-holdings-buildout.md`** — the build history: what was decided, and which
+  of those judgments were later *reversed* by evidence. Several were.
+
+The short version: DART's 5% rule is a percentage of the **issuer**, so it can only ever
+surface small caps and never a large cap. Fund fact sheets can — but they print only the
+top 10–25 positions, so what the system reports is a **lower bound on presence, never an
+absence**. `fund_holdings.disclosure_scope` carries that caveat into the schema.
 
 ### How the 5% collector works
 
@@ -76,10 +98,11 @@ returning an empty list, so a broken run cannot be mistaken for a quiet week.
 ## Layout
 
 ```
-config.py            # MANAGERS registry (CIK, CRD, URLs, DART terms) + shared constants
-db/                  # migrate.py runner + migrations/001_init.sql
-collectors/          # BaseCollector + edgar_13f / dart_5pct / form_adv / website
-parsers/             # pure functions: parse_13f / parse_dart / parse_website
+config.py            # MANAGERS + FUNDS registries (CIK, CRD, URLs, DART terms) + constants
+db/                  # migrate.py runner + migrations/
+collectors/          # BaseCollector + edgar_13f / dart_5pct / factsheet / form_adv / website
+parsers/             # pure functions: parse_13f / parse_dart / parse_factsheet /
+                     #                 parse_website / securities
 pipeline/            # run.py (cron) · diff.py · backfill.py · reparse.py · repo.py · notify.py
 dashboard/           # FastAPI + Jinja2 + HTMX + Chart.js
 tests/               # fixtures + parser/diff tests
