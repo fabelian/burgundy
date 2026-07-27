@@ -188,6 +188,19 @@ code{background:color-mix(in srgb,var(--wine) 9%,transparent); color:var(--wine)
   padding:1px 7px; border-radius:5px;
 }
 
+/* ── Cover byline — presenter and date ─────────────────────── */
+.byline{
+  display:flex; flex-direction:column; gap:clamp(7px,1.2vh,12px);
+  border-top:1px solid var(--rule); padding-top:clamp(14px,2.2vh,22px);
+}
+.byline .l{display:flex; gap:clamp(14px,2.2vw,28px); align-items:baseline;}
+.byline .lbl{
+  flex:none; width:4.5em; font-family:var(--mono); font-size:clamp(11px,1.15vw,13px);
+  letter-spacing:.12em; text-transform:uppercase; color:var(--muted);
+}
+.byline .val{font-size:clamp(15px,1.85vw,23px); font-weight:600; color:var(--ink);}
+.byline .val small{font-weight:400; color:var(--ink-soft); font-size:.8em;}
+
 /* ── Person card — portrait + short CV ─────────────────────── */
 .person{display:flex; gap:clamp(16px,2.6vw,32px); align-items:center; flex-wrap:wrap;}
 .person .shot{
@@ -375,13 +388,24 @@ td strong{color:var(--wine);}
 
 <div class="deck" id="deck">
 
+  <section class="slide" data-sec="표지">
+    <div class="inner">
+      <div class="eyebrow">CRM 세미나</div>
+      <h1>핸드폰만으로<br>업무에 도움이 되는<br>트래킹 시스템 만들어보기</h1>
+      <div class="byline">
+        <div class="l"><span class="lbl">발표</span><span class="val">홍성우 디렉터 <small>· 금융공학팀</small></span></div>
+        <div class="l"><span class="lbl">일시</span><span class="val">2026년 7월 28일</span></div>
+      </div>
+      <p class="tiny">→ 방향키 · 클릭 · 스와이프로 넘깁니다</p>
+    </div>
+  </section>
+
   <section class="slide" data-sec="시작">
     <div class="inner">
-      <div class="eyebrow">CRM 세미나 · 2026</div>
+      <div class="eyebrow">들어가며</div>
       <h1>담당 운용사 정보를<br>매일 자동으로 모으는<br>서비스를 만들었습니다</h1>
       <p class="lede">코드를 한 줄도 직접 쓰지 않고, <strong>Claude에게 한국어로 말해서</strong> 만들었습니다.<br>
         무엇을 보여주는지, 그리고 어떻게 만들었는지 설명드립니다.</p>
-      <p class="tiny">→ 방향키 · 클릭 · 스와이프로 넘깁니다</p>
     </div>
   </section>
 
