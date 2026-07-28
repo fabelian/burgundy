@@ -1,14 +1,19 @@
 # 자산운용사 추적기
 
-> ### 📊 [세미나 발표자료 바로 보기](https://claude.ai/code/artifact/fdc52f4b-5bc6-4314-8e4c-b8b2ca4df184)
+> ### 📊 세미나 발표자료
 >
 > **클로드 코드와 업무에 도움이 되는 트래킹 시스템 만들어보기** · CRM 세미나 (2026-07-28)
 >
 > 이게 뭔지, 어떻게 만들었는지, 쓴 도구가 무엇인지 33장으로 설명합니다.
 > **사전 지식 없이 볼 수 있습니다.** GitHub·Claude Code·Railway가 뭔지 모르는 상태에서 시작합니다.
 >
-> 원본 파일은 이 저장소 맨 위의 [`seminar.html`](seminar.html) 입니다 —
-> 내려받아 더블클릭하면 인터넷 없이도 열립니다. (GitHub에서 클릭하면 소스 코드만 보입니다)
+> **보는 법** — [`seminar.html`](seminar.html) 을 내려받아 더블클릭하세요.
+> 인터넷 없이 열리고 휴대폰에서도 열립니다.
+> GitHub 화면에서 그냥 누르면 슬라이드가 아니라 **소스 코드가 보입니다** —
+> 파일 화면 오른쪽 위의 **Download raw file** 로 받으셔야 합니다.
+>
+> <sub>(작성자용 링크: [claude.ai artifact](https://claude.ai/code/artifact/fdc52f4b-5bc6-4314-8e4c-b8b2ca4df184) —
+> 기본이 비공개라 **만든 사람만** 보입니다. 남에게 보내려면 그 페이지의 공유 메뉴에서 먼저 공유를 켜야 합니다.)</sub>
 
 ## 한 줄로
 
@@ -160,7 +165,7 @@ uvicorn dashboard.app:app --reload   # http://localhost:8000
 
 | 문서 | 내용 |
 |---|---|
-| [`seminar.html`](seminar.html) | 세미나 발표자료 33장 — **사전 지식 없이 볼 수 있는 설명**. [바로 보기](https://claude.ai/code/artifact/fdc52f4b-5bc6-4314-8e4c-b8b2ca4df184) |
+| [`seminar.html`](seminar.html) | 세미나 발표자료 33장 — **사전 지식 없이 볼 수 있는 설명**. 내려받아 브라우저로 열기 |
 | `docs/operations.md` | 코드 구조, 배포, 환경변수, 명령어 — **개발·운영용** |
 | `docs/korea-holdings.md` | 한국 보유내역을 어떤 자료로 알 수 있고 없는지, 그 근거 |
 | `docs/korea-holdings-buildout.md` | 만들어온 과정과, 나중에 뒤집힌 판단들 |
